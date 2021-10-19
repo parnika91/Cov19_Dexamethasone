@@ -18,15 +18,13 @@ library(ggplot2)
 library(ggpubr)
 library(reshape2)
 library(broom)
-library(betareg)
-library(effects)
 library(stringr)
-library(ggstatsplot)
+#library(ggstatsplot)
 ```
 
 ```{r load_datasets}
 # delta alpha clinical table
-PNT <- read_excel("~/Documents/charite/Dexa/2021-09-23_Dexa_Charite_UKK_all results Alpha and Delta clinical.xlsx") %>% 
+PNT <- read_excel("../2021-09-23_Dexa_Charite_UKK_all results Alpha and Delta clinical.xlsx") %>% 
   select("PatID Studie 1", 
          "Tag PSO", 
          "Days", 
@@ -45,7 +43,7 @@ PNT <- read_excel("~/Documents/charite/Dexa/2021-09-23_Dexa_Charite_UKK_all resu
   mutate(TagPSO = as.numeric(TagPSO))
 
 # FACS results
-facs <- read_excel("~/Documents/charite/Dexa//Mastertable FACS results 2021 09 12 CT LB.xlsx") %>% 
+facs <- read_excel("../Mastertable FACS results 2021 09 12 CT LB.xlsx") %>% 
   select("Studie 1", 
          "PatID Studie 1", 
          "Zeitraum 2021 09 03 und post Impfung W3-6", 
@@ -81,7 +79,7 @@ facs <- read_excel("~/Documents/charite/Dexa//Mastertable FACS results 2021 09 1
 
 
 # meta data
-meta <- read_excel("~/Documents/charite/Dexa//Metadaten_FACS_PNT_2021 10 12_PS.xlsx") %>%
+meta <- read_excel("../Metadaten_FACS_PNT_2021 10 12_PS.xlsx") %>%
   rename(PatID_Studie1 = `PatID Studie 1 kurz`, 
          Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
          Sex = `Geschlecht bei der Geburt` ,
@@ -100,7 +98,7 @@ meta <- read_excel("~/Documents/charite/Dexa//Metadaten_FACS_PNT_2021 10 12_PS.x
            PatID_Studie1 == "153"))
 
 # serology
-sero <- read_excel("~/Documents/charite/Dexa/Serology_20211006.xlsx") %>% 
+sero <- read_excel("../Serology_20211006.xlsx") %>% 
   rename(PatID_Studie1 = `PatID Studie 1`,
          IgG = `IgG BAU/ml`,
          TagPSO = `Tag PSO`, 
@@ -120,6 +118,7 @@ sero <- read_excel("~/Documents/charite/Dexa/Serology_20211006.xlsx") %>%
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
 strain <- c("B.1.1.7", "B.1.617.2")
+level_order <- c('1', '0', '3')
 
 ```
 Notes:
@@ -138,16 +137,211 @@ Notes:
 
 \pagebreak
 
-# Serology
+## IgG correlations
+### Late IgG vs early SRT
 
-## IgG levels vs PNT
+```{r late_IgG_vs_early_SRT}
+
+sero_SRT_diff_timepoints <- sero %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  select(PatID_Studie1, Timepoint.x, Timepoint.y, Dexa.x) %>% 
+  rename(Sero_time = Timepoint.x, SRT_time = Timepoint.y) %>% 
+  distinct()
+
+SRT_W2_sero_M2 <- sero_SRT_diff_timepoints %>% 
+  filter(Sero_time == "M2-4", SRT_time == "W 2")
+
+SRT_W3_sero_M5 <- sero_SRT_diff_timepoints %>% 
+  filter(Sero_time == "after month 5", SRT_time == "W3-6")
+
+SRT_W2_sero_M5 <- sero_SRT_diff_timepoints %>% 
+  filter(Sero_time == "after month 5", SRT_time == "W 2")
+
+SRT_W3_sero_M2 <- sero_SRT_diff_timepoints %>% 
+  filter(Sero_time == "M2-4", SRT_time == "W3-6")
+
+# SRT W2 vs IgG M2-4
+SRT_W2_sero_M2_pat <- sero %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  rename(Sero_time = Timepoint.x, SRT_time = Timepoint.y) %>% 
+  filter(Sero_time == "M2-4", SRT_time == "W 2")
+
+for(i in SRT)
+  print(
+    SRT_W2_sero_M2_pat %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG at M2-4") +
+      ylab(paste0(i, " at W2")) +
+      ggtitle("CD4 early SRT vs later IgG (19 patients)")
+  )
+  
+for(i in SRT)
+  print(
+    SRT_W2_sero_M2_pat %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG at M2-4") +
+      ylab(paste0(i, " at W2")) +
+      ggtitle("CD8 early SRT vs later IgG (19 patients)")
+  )
+
+# SRT W2 vs IgG after month 5
+SRT_W2_sero_M5_pat <- sero %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  rename(Sero_time = Timepoint.x, SRT_time = Timepoint.y) %>% 
+  filter(Sero_time == "after month 5", SRT_time == "W 2")
+
+for(i in SRT)
+  print(
+    SRT_W2_sero_M5_pat %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG after month 5") +
+      ylab(paste0(i, " at W2")) +
+      ggtitle("CD4 early SRT vs later IgG (16 patients)")
+  )
+  
+for(i in SRT)
+  print(
+    SRT_W2_sero_M5_pat %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG after month 5") +
+      ylab(paste0(i, " at W2")) +
+      ggtitle("CD8 early SRT vs later IgG (16 patients)")
+  )
+  
+# SRT W3 vs IgG at M2-4
+SRT_W3_sero_M2_pat <- sero %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  rename(Sero_time = Timepoint.x, SRT_time = Timepoint.y) %>% 
+  filter(Sero_time == "M2-4", SRT_time == "W3-6")
+
+for(i in SRT)
+  print(
+    SRT_W3_sero_M2_pat %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later IgG (16 patients)")
+  )
+
+for(i in SRT)
+  print(
+    SRT_W3_sero_M2_pat %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later IgG (16 patients)")
+  )
+
+# SRT W3 vs IgG after month 5
+SRT_W3_sero_M5_pat <- sero %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  rename(Sero_time = Timepoint.x, SRT_time = Timepoint.y) %>% 
+  filter(Sero_time == "after month 5", SRT_time == "W3-6")
+
+for(i in SRT)
+  print(
+    SRT_W3_sero_M5_pat %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG aafter month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later IgG (11 patients)")
+  )
+
+for(i in SRT)
+  print(
+    SRT_W3_sero_M5_pat %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("IgG aafter month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later IgG (11 patients)")
+  )
+```
+
+### IgG levels vs PNT
 
 ```{r serology}
 
 # Cor IgG vs PNT at different timepoints
 Sero_PNT <- sero %>% 
   left_join(., PNT, by = "PatID_Studie1") %>%
-  select(PatID_Studie1, Timepoint, Days, B.1.1.7, B.1.617.2, IgG) %>%
+  select(PatID_Studie1, Timepoint, Days, Dexa.x, B.1.1.7, B.1.617.2, IgG) %>%
   na.omit()
   
 
@@ -164,34 +358,71 @@ for(i in 1:nrow(Sero_PNT))
   index_dy <- grep(pattern = Sero_PNT$Days[i], time$days)
   if(any(index_tp == index_dy))
   {
-    sero_PNT_cor[a,1:6] <- Sero_PNT[i,]
+    sero_PNT_cor[a,1:7] <- Sero_PNT[i,]
     a = a+1
   }
 }
 
 # IgG vs B.1.1.7
+
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.1.7)) +
-  geom_point(alpha = 0.7) +
+  geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
   facet_wrap(~Timepoint) +
   theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("IgG BAU/ml") +
-  stat_cor(method = "pearson", label.x = 5000, label.y = 5000, size = 3) +
+  stat_cor(method = "pearson", label.x = 5000, size = 3) +
   geom_smooth(method = "lm", se = F)
-ggsave("IgG_PNT_correlation_same_timepoint.png")
+
+sero_PNT_cor %>% 
+  ggplot(aes(x = IgG, y = B.1.1.7, colour = factor(Dexa.x))) +
+  geom_point(alpha = 0.7) +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+  facet_wrap(~Timepoint) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("IgG BAU/ml") +
+  stat_cor(method = "pearson", label.x = 5000, size = 3) +
+  geom_smooth(method = "lm", se = F)
 
 # IgG vs B.1.617.2
+
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.617.2)) +
-  geom_point(alpha = 0.7) +
+  geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
   facet_wrap(~Timepoint) +
   theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("IgG BAU/ml") +
-  stat_cor(method = "pearson", label.x = 5000, label.y = 5000, size = 3) +
+  stat_cor(method = "pearson", label.x = 5000, size = 3) +
   geom_smooth(method = "lm", se = F)
+
+sero_PNT_cor %>% 
+  ggplot(aes(x = IgG, y = B.1.617.2, colour = factor(Dexa.x))) +
+  geom_point(alpha = 0.7) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+  facet_wrap(~Timepoint) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("IgG BAU/ml") +
+  stat_cor(method = "pearson", label.x = 5000, size = 3) +
+  geom_smooth(method = "lm", se = F)
+
+
 ```
+
+## IgG vs SRT
 
 ```{r sero_SRT, fig.dim(c(10,8))}
 
@@ -208,8 +439,11 @@ for(i in SRT)
       filter(Marker1=="CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", "after month 5"))) +
       theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle("IgG vs SRT (CD4)") +
       xlab("IgG BAU/ml") +
       stat_cor(method = "pearson", label.x = 2000, label.y = 1, size = 3) +
@@ -219,19 +453,54 @@ for(i in SRT)
 for(i in SRT)
   print(
     Sero_SRT %>% 
+      filter(Marker1=="CD4") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i), colour = factor(Dexa))) +
+      geom_point(alpha = 0.7) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", "after month 5"))) +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      ggtitle("IgG vs SRT (CD4)") +
+      xlab("IgG BAU/ml") +
+      stat_cor(method = "pearson", label.x = 2000, size = 3) +
+      geom_smooth(method = "lm", se = F)
+  )
+
+# CD8
+for(i in SRT)
+  print(
+    Sero_SRT %>% 
       filter(Marker1=="CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", "after month 5"))) +
       theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle("IgG vs SRT (CD8)") +
       xlab("IgG BAU/ml") +
       stat_cor(method = "pearson", label.x = 2000, label.y = 1, size = 3) +
       geom_smooth(method = "lm", se = F)
   )
 
-```
+for(i in SRT)
+  print(
+    Sero_SRT %>% 
+      filter(Marker1=="CD8") %>% 
+      ggplot(aes(x = IgG, y = !!sym(i), colour = factor(Dexa))) +
+      geom_point(alpha = 0.7) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", "after month 5"))) +
+      theme_bw() +
+      xlab("IgG BAU/ml") +
+      stat_cor(method = "pearson", label.x = 2000, size = 3) +
+      geom_smooth(method = "lm", se = F)
+  )
 
+```
 
 ## IgG levels vs Age, Sex
 
@@ -242,14 +511,18 @@ Sero_meta <- sero %>%
   left_join(., PNT, by = c("PatID_Studie1", "Dexa")) %>% 
   select(PatID_Studie1, Age, Sex, Timepoint, IgG, Dexa) %>% 
   distinct() %>% 
-  filter(!(PatID_Studie1 == "183"))
+  filter(!(PatID_Studie1 == "183")) %>% 
+  mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2"))
 
 Sero_meta %>% 
   ggplot(., aes(x = IgG, y = Age)) + 
   geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
-  facet_wrap(~Dexa) +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+  facet_wrap(~factor(Dexa, levels = c('1', '0', '3'))) +
   stat_cor(method = "pearson", label.x = 5000, label.y = 20, size = 3) +
-  theme_bw()
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue"))
 
 my_comparisons <- list(c("Männlich", "Weiblich"))
 Sero_meta %>% 
@@ -258,32 +531,409 @@ Sero_meta %>%
   geom_violin(alpha = 0.7) + 
   geom_jitter(width = 0.1, aes(color = factor(Timepoint))) +
   stat_compare_means(comparisons = my_comparisons) +
-  theme_bw()
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue"))
 
 Sero_meta %>% 
   filter(!is.na(Sex)) %>% 
   ggplot(., aes(x = Sex, y = IgG)) + 
   geom_violin(alpha = 0.7) +
   geom_jitter(width = 0.1, aes(color = factor(Timepoint))) +
-  facet_wrap(~Timepoint) +
+  facet_grid(~factor(Timepoint, level = c('W 2', 'W3-6', 'M2-4', 'after month 5', 'post vacc'))) +
   stat_compare_means(comparisons = my_comparisons) +
-  theme_bw()
+  theme_bw() +
+  theme(strip.background = element_rect(fill="aliceblue"))
   
 Sero_meta %>% 
   #filter(!is.na(Sex)) %>% 
-  ggplot(., aes(x = factor(Dexa), y = IgG)) + 
+  ggplot(., aes(x = factor(Dexa, levels = level_order), y = IgG)) + 
   geom_violin(alpha = 0.7) +
   geom_jitter(width = 0.1, aes(color = factor(Timepoint))) +
-  facet_wrap(~factor(Timepoint, level = c('W 2', 'W3-6', 'M2-4', 'after month 5', 'post vacc'))) +
-  geom_signif(comparisons = list(c("0", "3")), 
-        map_signif_level=TRUE, y_position = 15000) +
-  geom_signif(comparisons = list(c("0", "1")), 
-        map_signif_level=TRUE, y_position = 14700) +
-  geom_signif(comparisons = list(c("1", "3")), 
-        map_signif_level=TRUE) +
-  theme_bw()
+  facet_grid(~factor(Timepoint, level = c('W 2', 'W3-6', 'M2-4', 'after month 5', 'post vacc'))) +
+  stat_compare_means(method = "wilcox.test", comparisons = list(c("0", "3")), label.y = 15000, size = 2.5) +
+  stat_compare_means(method = "wilcox.test", comparisons = list(c("0", "1")), label.y = 15400, size = 2.5) +
+  stat_compare_means(method = "wilcox.test", comparisons = list(c("1", "3")), label.y = 15900, size = 2.5) +
+  stat_compare_means(label.y = 14500, size = 3) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  xlab("Dexa levels: 1 = Dexa, 0 = no Dexa, 3 = mild")
+
+```
+
+```{r early_SRT vs late_PNT}
+
+PNT_SRT_diff_timepoints <- PNT %>% 
+  left_join(., facs, by = "PatID_Studie1") %>% 
+  group_by(PatID_Studie1) %>% 
+  #select(PatID_Studie1, Days, Timepoint, Dexa.x) %>% 
+  rename(SRT_time = Timepoint) %>% 
+  add_column(PNT_time = NA)
+
+for(i in 1:nrow(PNT_SRT_diff_timepoints))
+  if(!is.na(PNT_SRT_diff_timepoints$SRT_time[i]))
+  {
+    if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "d25-60"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "d39-60"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "d39-46"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "5-7mo"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "after month 5"
+    } else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "PostVac"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "post vacc"
+    }else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "2-4mo"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "M2-4"
+    } else if(grepl(PNT_SRT_diff_timepoints$Days[i], pattern = "d80-140"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "M2-4"
+    } else if(grepl(PNT_SRT_diff_timepoints$TagPSO.x[i], pattern = "6"))
+      {
+        PNT_SRT_diff_timepoints$PNT_time[i] <- "W 2"
+    }
+  }
 
 
+SRT_W2_PNT_M2 <- PNT_SRT_diff_timepoints %>% 
+  filter(PNT_time == "M2-4", SRT_time == "W 2") %>% 
+  select(PatID_Studie1, SRT_time, PNT_time) %>% 
+  distinct()
+
+SRT_W2_PNT_M5 <- PNT_SRT_diff_timepoints %>% 
+  filter(PNT_time == "after month 5", SRT_time == "W 2") %>% 
+  select(PatID_Studie1, SRT_time, PNT_time) %>% 
+  distinct()
+
+SRT_W3_PNT_M2 <- PNT_SRT_diff_timepoints %>% 
+  filter(PNT_time == "M2-4", SRT_time == "W3-6") %>% 
+  select(PatID_Studie1, SRT_time, PNT_time) %>% 
+  distinct()
+
+SRT_W3_PNT_M5 <- PNT_SRT_diff_timepoints %>% 
+  filter(PNT_time == "after month 5", SRT_time == "W3-6") %>% 
+  select(PatID_Studie1, SRT_time, PNT_time) %>% 
+  distinct()
+
+# SRT at W2, PNT at M2-4
+# B.1.1.7
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD4 early SRT vs later PNT (18 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD8 early SRT vs later PNT (18 patients)")
+  )
+# B.1.617.2
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD4 early SRT vs later PNT (18 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD8 early SRT vs later PNT (18 patients)")
+  )
+
+# SRT at W2, PNT at after month 5
+# B.1.1.7
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD4 early SRT vs later PNT (10 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD8 early SRT vs later PNT (10 patients)")
+  )
+
+# B.1.617.2
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD4 early SRT vs later PNT (10 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W 2") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W 2")) +
+      ggtitle("CD8 early SRT vs later PNT (10 patients)")
+  )
+
+# SRT at W3, PNT at M2
+# B.1.1.7
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later PNT (15 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later PNT (15 patients)")
+  )
+
+# B.1.617.2
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.617.2) at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later PNT (15 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "M2-4", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.617.2) at M2-4") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later PNT (15 patients)")
+  )
+
+# SRT at W3, PNT after month 5
+# B.1.1.7
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later PNT (7 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.1.7) after month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later PNT (7 patients)")
+  )
+
+# B.1.617.2
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD4") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.617.2) after month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD4 early SRT vs later PNT (7 patients)")
+  )
+
+for(i in SRT)
+  print(
+    PNT_SRT_diff_timepoints %>% 
+      filter(PNT_time == "after month 5", SRT_time == "W3-6") %>% 
+      filter(Marker1 == "CD8") %>% 
+      ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      facet_wrap(~Marker2) +
+      stat_cor(method = "pearson", size = 3) +
+      #stat_smooth(method = "lm", se = "F") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      xlab("PNT (B.1.617.2) after month 5") +
+      ylab(paste0(i, " at W3-6")) +
+      ggtitle("CD8 early SRT vs later PNT (7 patients)")
+  )
 ```
 
 ## Sex vs SRT
@@ -618,27 +1268,6 @@ PNT_Age_Sex %>%
 
 
 ```
-
-<!-- ```{r SRT_w6_cor_PNT_M3} -->
-
-<!-- SRT_w3_6 <- PNT_SRT %>%  -->
-<!--   filter(Timepoint == "W3-6") %>% -->
-<!--   select(PatID_Studie1, Timepoint, Marker1, Marker2, CEFX, S1, S2, SEB) -->
-<!-- PNT_M2_4 <- PNT_SRT %>%  -->
-<!--   filter(Timepoint == "M2-4") %>% -->
-<!--   select(PatID_Studie1, Timepoint, B.1.1.7, B.1.617.2) -->
-
-<!-- PNT_M5 <- PNT_SRT %>%  -->
-<!--   filter(Timepoint == "after month 5") %>% -->
-<!--   select(PatID_Studie1, Timepoint, B.1.1.7, B.1.617.2) %>%  -->
-<!--   na.omit() -->
-
-
-<!-- for(i in SRT) -->
-<!--   print(PNT_SRT ) -->
-
-
-<!-- ``` -->
 
 ## Correlation between S1 vs S2, S1 vs CEFX, etc, for each marker, separately for CD4 and CD8
 ```{r }
@@ -986,116 +1615,119 @@ for(i in SRT)
 
 \newpage
 
-## Change in the values of S1, S2, CEFX and SEB with time (days post symptom). Each patient has data for only one time point - all patients are used together for this analysis. Triangle represents mean at that time point
+<!-- ## Change in the values of S1, S2, CEFX and SEB with time (days post symptom). Each patient has data for only one time point - all patients are used together for this analysis. Triangle represents mean at that time point -->
 
-```{r progression}
+<!-- ```{r progression} -->
 
-SRT <- c("S1", "S2", "CEFX", "SEB")
+<!-- SRT <- c("S1", "S2", "CEFX", "SEB") -->
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Marker1 == "CD4") %>%
-    ggplot(., aes(x = TagPSO, y = !!sym(i), group = Dexa)) + 
-      geom_point(alpha = 0.7) + geom_line(aes(color = factor(Dexa), group = Dexa), alpha = 0.4) +
-      theme(axis.text.x = element_text(angle = 90)) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      #facet_wrap(.~Marker2, scales = "free_y") + 
-      ggtitle("CD4") + 
-      theme_bw())
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Marker1 == "CD4") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), colour = factor(Dexa))) +  -->
+<!--       #geom_point(alpha = 0.5) +  -->
+<!--       geom_line(aes(linetype = factor(Dexa), group = factor(Dexa)), alpha = 0.4) + -->
+<!--       theme(axis.text.x = element_text(angle = 90)) + -->
+<!--       #stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       #facet_wrap(.~Timepoint) +  -->
+<!--       ggtitle("CD4") +  -->
+<!--       theme_bw()) -->
+<!-- ``` -->
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Marker1 == "CD8") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      theme(axis.text.x = element_text(angle = 90)) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(.~Marker2, scales = "free_y") + 
-      ggtitle("CD8") + 
-      theme_bw())
-
-
-# dexa_3
-
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 3 & Marker1 == "CD4") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD4, Dexa 3") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
+<!-- ```{r} -->
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Marker1 == "CD8") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       theme(axis.text.x = element_text(angle = 90)) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(.~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD8") +  -->
+<!--       theme_bw()) -->
 
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 3 & Marker1 == "CD8") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD8, Dexa 3") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
+<!-- # dexa_3 -->
 
-# dexa_0
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 3 & Marker1 == "CD4") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD4, Dexa 3") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 0 & Marker1 == "CD4") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD4, Dexa 0") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 0 & Marker1 == "CD8") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD8, Dexa 0") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 3 & Marker1 == "CD8") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD8, Dexa 3") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
 
-# dexa 1
+<!-- # dexa_0 -->
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 1 & Marker1 == "CD4") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD4, Dexa 1") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 0 & Marker1 == "CD4") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD4, Dexa 0") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
 
-for(i in SRT)
-  print(
-    facs %>%
-      filter(Dexa == 1 & Marker1 == "CD8") %>%
-    ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) + 
-      geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) +
-      stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) +
-      facet_wrap(~Marker2, scales = "free_y") + 
-      ggtitle("CD8, Dexa 1") + 
-      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-      theme_bw())
-```
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 0 & Marker1 == "CD8") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD8, Dexa 0") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
+
+<!-- # dexa 1 -->
+
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 1 & Marker1 == "CD4") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD4, Dexa 1") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
+
+<!-- for(i in SRT) -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Dexa == 1 & Marker1 == "CD8") %>% -->
+<!--     ggplot(., aes(x = Timepoint, y = !!sym(i), group = PatID_Studie1)) +  -->
+<!--       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + geom_line(aes(group = PatID_Studie1), alpha = 0.4) + -->
+<!--       stat_summary(aes(group = 1), geom = "point", fun = mean, shape = 17, size = 2) + -->
+<!--       facet_wrap(~Marker2, scales = "free_y") +  -->
+<!--       ggtitle("CD8, Dexa 1") +  -->
+<!--       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + -->
+<!--       theme_bw()) -->
+<!-- ``` -->
 
 
 <!-- ## Linear models to explain Serum ID50 with Age or (Age and Severity) as predictors of Serum ID50 -->
