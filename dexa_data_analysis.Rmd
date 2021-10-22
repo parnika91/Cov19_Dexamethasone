@@ -1115,7 +1115,9 @@ for(i in SRT)
 
 \newpage
 
-## Change in the values of S1, S2, CEFX and SEB with time (days post symptom)
+# Progression with days PSO
+
+## Progression of S1, S2, CEFX and SEB
 ```{r progression}
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -1175,6 +1177,303 @@ for(i in SRT)
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")))
 
+```
+
+## Progression of PNT
+```{r PNTprogression}
+
+PNT %>% 
+  left_join(., facs) %>% 
+  select(PatID_Studie1, Dexa, TagPSO,
+         Days, B.1.1.7, B.1.617.2) %>% 
+  distinct() %>% 
+  add_column(PNT_time = NA)-> PNT_progression
+
+
+
+for(i in 1:nrow(PNT_progression))
+  #if(!is.na(PNT_progression$SRT_time[i]))
+  {
+    if(grepl(PNT_progression$Days[i], pattern = "d25-60"))
+      {
+        PNT_progression$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_progression$Days[i], pattern = "d39-60"))
+      {
+        PNT_progression$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_progression$Days[i], pattern = "d39-46"))
+      {
+        PNT_progression$PNT_time[i] <- "W3-6"
+    } else if(grepl(PNT_progression$Days[i], pattern = "5-7mo"))
+      {
+        PNT_progression$PNT_time[i] <- "after month 5"
+    } else if(grepl(PNT_progression$Days[i], pattern = "PostVac"))
+      {
+        PNT_progression$PNT_time[i] <- "post vacc"
+    }else if(grepl(PNT_progression$Days[i], pattern = "2-4mo"))
+      {
+        PNT_progression$PNT_time[i] <- "M2-4"
+    } else if(grepl(PNT_progression$Days[i], pattern = "d80-140"))
+      {
+        PNT_progression$PNT_time[i] <- "M2-4"
+     } #else if(grepl(PNT_progression$TagPSO.x[i], pattern = "6"))
+    #   {
+    #     PNT_progression$PNT_time[i] <- "W 2"
+    # }
+  }
+
+for(i in strain)
+  print(
+    PNT_progression %>%
+      #filter(Marker1 == "CD4") %>%
+    ggplot(., aes(x = factor(PNT_time, 
+                             levels = c('W 2', 'W3-6', 'M2-4', 
+                                        'after month 5', 'post vacc')), 
+                  y = !!sym(i), 
+                  colour = factor(Dexa))) +
+      theme(axis.text.x = element_text(angle = 90)) +
+      geom_jitter(width = 0.1, alpha = 0.2) +
+      scale_y_log10() +
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      scale_fill_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
+                  se = F, size = 0.4) +
+      xlab("Timepoint") +
+      ggtitle(paste0(i, " progression")) +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")))
+
+for(i in strain)
+  print(
+    PNT_progression %>%
+      #filter(Marker1 == "CD4") %>%
+    ggplot(., aes(x = TagPSO, y = !!sym(i), colour = factor(Dexa))) +
+      theme(axis.text.x = element_text(angle = 90)) +
+      geom_jitter(width = 0.1, alpha = 0.2) +
+      scale_y_log10() +
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      scale_fill_manual(breaks = c("1", "0", "3"),
+                        values=c("red", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
+                  se = F, size = 0.4) +
+      xlab("Days PSO") +
+      ggtitle(paste0(i, " progression")) +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")))
+## Days PSO for post vacc was NA, and didn't get plotted
+
+for(i in strain)
+  print(
+    PNT_progression %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(aes(x = factor(PNT_time, 
+                           levels = c('W 2', 'W3-6', 'M2-4', 
+                                      'after month 5', 'post vacc')), 
+             y = !!sym(i), 
+             colour = factor(Dexa),
+             group = factor(PatID_Studie1))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    #geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_point(position = position_dodge(0.4), alpha = 0.8) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_line(position = position_dodge(0.4), 
+              aes(group = factor(PatID_Studie1)), alpha = 0.8, 
+              size = 0.2) +
+    xlab("Timepoint") +
+    ggtitle("PNT progression (by patient ID)") +
+    theme_bw() +
+    #theme(legend.position = "none") +
+    theme(strip.background =element_rect(fill="aliceblue")))
+
+
+for(i in strain)
+  print(
+    PNT_progression %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(aes(x = as.numeric(TagPSO), 
+             y = !!sym(i), 
+             colour = factor(Dexa),
+             group = factor(PatID_Studie1))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    #geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_point(alpha = 0.8) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_line(#position = position_dodge(0.4), 
+              aes(group = factor(PatID_Studie1)), alpha = 0.8, 
+              size = 0.2) +
+    xlab("Days PSO") +
+    ggtitle("PNT progression (by patient ID)") +
+    theme_bw() +
+    #theme(legend.position = "none") +
+    theme(strip.background =element_rect(fill="aliceblue")))
+```
+
+## Progression of IgG
+
+```{r IgGprogression}
+
+sero %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(., aes(x = factor(Timepoint, 
+                           levels = c('W 2', 'W3-6', 'M2-4', 
+                                      'after month 5', 'post vacc')), 
+                y = IgG, 
+                colour = factor(Dexa))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    geom_jitter(width = 0.1, alpha = 0.2) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
+                se = F, size = 0.4) +
+    xlab("Timepoint") +
+    ggtitle("IgG progression") +
+    theme_bw() +
+    theme(strip.background =element_rect(fill="aliceblue"))
+
+
+sero %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(aes(x = as.numeric(TagPSO), 
+                y = IgG, 
+                colour = factor(Dexa))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    geom_jitter(width = 0.1, alpha = 0.2) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
+                se = F, size = 0.4) +
+    xlab("Days PSO") +
+    ggtitle("IgG progression") +
+    theme_bw() +
+    theme(strip.background =element_rect(fill="aliceblue"))
+
+sero %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(aes(x = factor(Timepoint, 
+                           levels = c('W 2', 'W3-6', 'M2-4', 
+                                      'after month 5', 'post vacc')), 
+             y = IgG, 
+             colour = factor(Dexa),
+             group = factor(PatID_Studie1))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    #geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_point(position = position_dodge(0.4), alpha = 0.8) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), alpha = 0.8, 
+              size = 0.2) +
+    xlab("Timepoint") +
+    ggtitle("IgG progression (by patient ID)") +
+    theme_bw() +
+    #theme(legend.position = "none") +
+    theme(strip.background =element_rect(fill="aliceblue"))
+
+
+sero %>%
+  filter(!PatID_Studie1 == "435") %>% 
+  ggplot(aes(x = as.numeric(TagPSO), 
+             y = IgG, 
+             colour = factor(Dexa),
+             group = factor(PatID_Studie1))) +
+    theme(axis.text.x = element_text(angle = 90)) +
+    #geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_point(alpha = 0.8) +
+    scale_y_log10() +
+    #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+    #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+    scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    scale_fill_manual(breaks = c("1", "0", "3"),
+                      values=c("red", "blue", "green3")) +
+    # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+    #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+    #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+    #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+    #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+    #            scales = "free") +
+    geom_line(#position = position_dodge(0.4), 
+              aes(group = factor(PatID_Studie1)), alpha = 0.8, 
+              size = 0.2) +
+    xlab("Days PSO") +
+    ggtitle("IgG progression (by patient ID)") +
+    theme_bw() +
+    #theme(legend.position = "none") +
+    theme(strip.background =element_rect(fill="aliceblue"))
 ```
 
 ## Sex vs SRT
