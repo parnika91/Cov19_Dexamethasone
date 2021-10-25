@@ -9,6 +9,9 @@ output:
 
 ```{r, echo = F}
 knitr::opts_chunk$set(warning = F, message = F)
+knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
+#knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+
 ```
 
 ```{r load_libraries, echo = F, message = F, warning = F}
@@ -43,7 +46,7 @@ PNT <- read_excel("../2021-09-23_Dexa_Charite_UKK_all results Alpha and Delta cl
   mutate(TagPSO = as.numeric(TagPSO))
 
 # FACS results
-facs <- read_excel("../Mastertable FACS results 2021 09 12 CT LB.xlsx") %>% 
+facs <- read_excel("../20211014 Mastertable FACS results LB final.xlsx") %>% 
   select("Studie 1", 
          "PatID Studie 1", 
          "Zeitraum 2021 09 03 und post Impfung W3-6", 
@@ -54,7 +57,9 @@ facs <- read_excel("../Mastertable FACS results 2021 09 12 CT LB.xlsx") %>%
          "#CEFX-unstim negativ auf 0", 
          "#S1-unstim negativ auf 0", 
          "#S2-unstim negativ auf 0", 
-         "#SEB-unstim negativ auf 0") %>%
+         "#SEB-unstim negativ auf 0",
+         "ausschliessen") %>%
+  mutate(ausschliessen = replace_na(ausschliessen, 0)) %>% 
   rename(Studie1 = `Studie 1`, 
          PatID_Studie1 = `PatID Studie 1`, 
          Timepoint = `Zeitraum 2021 09 03 und post Impfung W3-6`,
@@ -75,11 +80,12 @@ facs <- read_excel("../Mastertable FACS results 2021 09 12 CT LB.xlsx") %>%
            PatID_Studie1 == "115" | 
            PatID_Studie1 == "120" | 
            PatID_Studie1 == "133" | 
-           PatID_Studie1 == "153"))
+           PatID_Studie1 == "153")) %>% 
+  filter(!(ausschliessen == 1))
 
 
 # meta data
-meta <- read_excel("../Metadaten_FACS_PNT_2021 10 12_PS.xlsx") %>%
+meta <- read_excel("../Metadaten_FACS_PNT_2021 10 22_CT.xlsx") %>%
   rename(PatID_Studie1 = `PatID Studie 1 kurz`, 
          Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
          Sex = `Geschlecht bei der Geburt` ,
@@ -98,12 +104,14 @@ meta <- read_excel("../Metadaten_FACS_PNT_2021 10 12_PS.xlsx") %>%
            PatID_Studie1 == "153"))
 
 # serology
-sero <- read_excel("../Serology_20211006.xlsx") %>% 
+sero <- read_excel("../Results_20211006_post vacc corrected CT_LB.xlsx") %>% 
   rename(PatID_Studie1 = `PatID Studie 1`,
          IgG = `IgG BAU/ml`,
          TagPSO = `Tag PSO`, 
          Timepoint = Zeitraum, 
-         Dexa = `Dexamethason\r\n0 = no\r\n1 = yes\r\n3 = not applicable`) %>% 
+         Dexa = `Dexamethason0 = no1 = yes3 = not applicable`,
+         ausschliessen_imm = `ausschliessen (Immunsuppression)`) %>% 
+  mutate(ausschliessen_imm = replace_na(ausschliessen_imm, 0)) %>%
   mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
   mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
   mutate(IgG = as.numeric(str_replace(IgG, c(","), "\\."))) %>% 
@@ -114,7 +122,8 @@ sero <- read_excel("../Serology_20211006.xlsx") %>%
            PatID_Studie1 == "115" | 
            PatID_Studie1 == "120" | 
            PatID_Studie1 == "133" | 
-           PatID_Studie1 == "153"))
+           PatID_Studie1 == "153")) %>% 
+  filter(!ausschliessen_imm == 1)
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
 strain <- c("B.1.1.7", "B.1.617.2")
@@ -124,7 +133,7 @@ level_order <- c('1', '0', '3')
 Notes:\
 1. Left out the 7 patients with immunosuppression\
 2. Changed all patient IDs to short IDs (eg. C19-CB-0010 to 10)\
-3. To avoid losing data points, where there was no entry for time point bins, I manually entered them as follows: (Please correct me where necessary!)\
+3. To avoid losing data points, where there was no entry for time point bins, I manually entered them as follows:\
 + Tag PSO 6 -> W2 ("Tag PSO" range for W2 bin was from 8 to 18). This has data points from only 1 patient.\
 + d25-60 -> W3-6\
 + d39-60 -> W3-6\
@@ -162,7 +171,7 @@ SRT_W3_sero_M2 <- sero_SRT_diff_timepoints %>%
 ```
 
 ### Correlation of SRT @ W2 vs IgG @ M2-4
-```{r SRT W2 vs IgG M2-4}
+```{r SRT W2 vs IgG M2-4_1, fig.height = 15, fig.width = 10,tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT W2 vs IgG M2-4
 SRT_W2_sero_M2_pat <- sero %>% 
   left_join(., facs, by = "PatID_Studie1") %>% 
@@ -175,16 +184,19 @@ for(i in SRT)
     SRT_W2_sero_M2_pat %>% 
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
-      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) +
+      labs(col = "Dexa") +
+
+      #scale_y_log10() +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -192,38 +204,46 @@ for(i in SRT)
       ylab(paste0(i, " at W2")) +
       ggtitle("CD4 early SRT vs later IgG (19 patients)")
   )
+```
+
+Of special interest:
+```{r SRT W2 vs IgG M2-4_special}
 
 SRT_W2_sero_M2_pat %>% 
-      filter(Marker1 == "CD4" & Marker2 == "CD40L+ IL-21+") %>% 
-      ggplot(aes(x = IgG, y = S1)) + 
-      geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
-      scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-      facet_wrap(~factor(Marker2, levels = c("CD40L+ IL-21+")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
-      #stat_smooth(method = "lm", se = "F") +
-      theme_bw() +
-      theme(strip.background =element_rect(fill="aliceblue")) +
-      xlab("IgG at M2-4") +
-      ylab(paste0(i, " at W2")) +
-      ggtitle("CD4 (CD40L+ IL-21+) S1 at W2 vs IgG at M2-4 (19 patients)")
-  
+  filter(Marker1 == "CD4" & Marker2 == "CD40L+ IL-21+") %>% 
+  ggplot(aes(x = IgG, y = S1)) + 
+  geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                    values=c("orangered", "blue", "green3")) +
+  facet_wrap(~factor(Marker2, levels = c("CD40L+ IL-21+")),
+             scales = "free_y") +
+  stat_cor(method = "pearson", size = 4) +
+  #stat_smooth(method = "lm", se = "F") +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  xlab("IgG at M2-4") +
+  ylab("S1 at W2") +
+  ggtitle("CD4 (CD40L+ IL-21+) S1 at W2 vs IgG at M2-4 (19 patients)")
+```
+
+```{r SRT W2 vs IgG M2-4, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}  
 for(i in SRT)
   print(
     SRT_W2_sero_M2_pat %>% 
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -235,7 +255,7 @@ for(i in SRT)
 
 ### Correlation of SRT @ W2 vs IgG after month 5
 
-```{r SRT W2 vs IgG after month 5}
+```{r SRT W2 vs IgG after month 5, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT W2 vs IgG after month 5
 SRT_W2_sero_M5_pat <- sero %>% 
   left_join(., facs, by = "PatID_Studie1") %>% 
@@ -249,15 +269,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -272,15 +293,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -292,7 +314,7 @@ for(i in SRT)
 
 ### Correlation of SRT @ W3-6 vs IgG @ M2-4
 
-```{r SRT W3 vs IgG at M2-4}
+```{r SRT W3 vs IgG at M2-4, fig.height = 15, fig.width = 10,  tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT W3 vs IgG at M2-4
 SRT_W3_sero_M2_pat <- sero %>% 
   left_join(., facs, by = "PatID_Studie1") %>% 
@@ -306,15 +328,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales  = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales  = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -329,15 +352,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales  = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales  = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -349,7 +373,7 @@ for(i in SRT)
 
 ### Correlation of SRT @ W3-6 vs IgG after month 5
 
-```{r SRT W3 vs IgG after month 5}
+```{r SRT W3 vs IgG after month 5, fig.height = 15, fig.width = 10,  tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT W3 vs IgG after month 5
 SRT_W3_sero_M5_pat <- sero %>% 
   left_join(., facs, by = "PatID_Studie1") %>% 
@@ -363,15 +387,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -386,15 +411,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -439,8 +465,9 @@ for(i in 1:nrow(Sero_PNT))
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.1.7)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M2-4', 'after month 5', 
                                            'post vacc')), 
              scales = "free_y") +
@@ -454,8 +481,9 @@ sero_PNT_cor %>%
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.1.7, colour = factor(Dexa.x))) +
   geom_point(alpha = 0.7) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M2-4', 'after month 5', 
                                            'post vacc')), 
              scales = "free_y") +
@@ -471,8 +499,9 @@ sero_PNT_cor %>%
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.617.2)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M2-4', 'after month 5', 
                                            'post vacc')), 
              scales = "free_y") +
@@ -486,8 +515,9 @@ sero_PNT_cor %>%
 sero_PNT_cor %>% 
   ggplot(aes(x = IgG, y = B.1.617.2, colour = factor(Dexa.x))) +
   geom_point(alpha = 0.7) +
-    scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                     values=c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M2-4', 'after month 5', 
                                            'post vacc')),
              scales = "free_y") +
@@ -519,8 +549,9 @@ for(i in SRT)
       filter(Marker1=="CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", 
                                                "after month 5")),
                  scales = "free_y") +
@@ -538,8 +569,9 @@ for(i in SRT)
       filter(Marker1=="CD4") %>% 
       ggplot(aes(x = IgG, y = !!sym(i), colour = factor(Dexa))) +
       geom_point(alpha = 0.7) +
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", 
                                                "after month 5")),
                  scales = "free_y") +
@@ -558,8 +590,9 @@ for(i in SRT)
       filter(Marker1=="CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", 
                                                "after month 5")),
                  scales = "free_y") +
@@ -577,8 +610,9 @@ for(i in SRT)
       filter(Marker1=="CD8") %>% 
       ggplot(aes(x = IgG, y = !!sym(i), colour = factor(Dexa))) +
       geom_point(alpha = 0.7) +
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_grid(~factor(Timepoint, levels = c("W 2", "M2-4", 
                                                "after month 5")),
                  scales = "free_y") +
@@ -605,8 +639,9 @@ Sero_meta <- sero %>%
 Sero_meta %>% 
   ggplot(., aes(x = IgG, y = Age)) + 
   geom_point(alpha = 0.5, aes(color = factor(Dexa))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Dexa, levels = c('1', '0', '3'))) +
   stat_cor(method = "pearson", label.x = 2500, label.y = 20, size = 3) +
   theme_bw() +
@@ -619,8 +654,9 @@ Sero_meta %>%
   ggplot(., aes(x = Sex, y = IgG)) + 
   geom_violin(alpha = 0.7) + 
   geom_jitter(width = 0.1, alpha = 0.5, aes(color = factor(Dexa))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   stat_compare_means(comparisons = my_comparisons) +
   theme_bw() +
   theme(strip.background =element_rect(fill="aliceblue")) +
@@ -630,9 +666,10 @@ Sero_meta %>%
   filter(!is.na(Sex)) %>% 
   ggplot(., aes(x = Sex, y = IgG)) + 
   geom_violin(alpha = 0.5) +
-  geom_jitter(width = 0.1, aes(color = factor(Dexa))) + 
+  geom_jitter(width = 0.1, aes(color = factor(Dexa))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   ggtitle("Sex vs IgG") +
   facet_grid(~factor(Timepoint, level = c('W 2', 'W3-6', 'M2-4', 
                                           'after month 5', 'post vacc'))) +
@@ -645,8 +682,9 @@ Sero_meta %>%
   ggplot(., aes(x = factor(Dexa, levels = level_order), y = IgG)) + 
   geom_violin(alpha = 0.5) +
   geom_jitter(width = 0.1, aes(color = factor(Dexa))) +
+  labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
   facet_grid(~factor(Timepoint, level = c('W 2', 'W3-6', 'M2-4', 
                                           'after month 5', 'post vacc'))) +
   stat_compare_means(method = "wilcox.test", comparisons = list(c("0", "3")), 
@@ -655,7 +693,6 @@ Sero_meta %>%
                      label.y = 15400, size = 2.5) +
   stat_compare_means(method = "wilcox.test", comparisons = list(c("1", "3")), 
                      label.y = 15900, size = 2.5) +
-  #stat_compare_means(label.y = 14500, size = 3) +
   theme_bw() +
   theme(strip.background =element_rect(fill="aliceblue")) +
   xlab("Dexa levels: 1 = Dexa, 0 = no Dexa, 3 = mild") +
@@ -706,7 +743,7 @@ for(i in 1:nrow(PNT_SRT_diff_timepoints))
 
 ### Correlation SRT at W2, PNT at M2-4
 
-```{r SRT at W2, PNT at M2-4}
+```{r SRT at W2, PNT at M2-4, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT at W2, PNT at M2-4
 # B.1.1.7
 for(i in SRT)
@@ -716,15 +753,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -740,13 +778,15 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
-                                             "CD137+ TNF-a+","CD137+ GrzB-"))) +
+                                             "CD137+ TNF-a+","CD137+ GrzB-")),
+                 scales = "free_y", ncol = 2) +
       stat_cor(method = "pearson", size = 3) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
@@ -763,14 +803,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
-                                             "CD137+ TNF-a+","CD137+ GrzB-"))) +
-      stat_cor(method = "pearson", size = 3) +
+                                             "CD137+ TNF-a+","CD137+ GrzB-")),
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -786,15 +828,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -806,7 +849,7 @@ for(i in SRT)
 
 ### Correlation SRT at W2, PNT at after month 5
 
-```{r SRT at W2, PNT at after month 5}
+```{r SRT at W2, PNT at after month 5, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT at W2, PNT at after month 5
 # B.1.1.7
 for(i in SRT)
@@ -816,15 +859,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -840,15 +884,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -865,15 +910,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -889,15 +935,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -909,7 +956,7 @@ for(i in SRT)
 
 ### Correlation SRT at W3, PNT at M2
 
-```{r SRT at W3, PNT at M2}
+```{r SRT at W3, PNT at M2, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT at W3, PNT at M2
 # B.1.1.7
 for(i in SRT)
@@ -919,15 +966,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -943,15 +991,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -968,15 +1017,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -992,15 +1042,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -1012,7 +1063,7 @@ for(i in SRT)
 
 ### Correlation SRT at W3, PNT after month 5
 
-```{r SRT at W3, PNT after month 5}
+```{r SRT at W3, PNT after month 5, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 # SRT at W3, PNT after month 5
 # B.1.1.7
 for(i in SRT)
@@ -1022,15 +1073,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -1046,15 +1098,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.1.7, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -1071,15 +1124,16 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -1095,15 +1149,16 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>% 
       ggplot(aes(x = B.1.617.2, y = !!sym(i))) + 
       geom_point(alpha = 0.7, aes(colour = factor(Dexa.x))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free_y") +
-      stat_cor(method = "pearson", size = 3) +
+                 scales = "free_y", ncol = 2) +
+      stat_cor(method = "pearson", size = 4) +
       #stat_smooth(method = "lm", se = "F") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
@@ -1115,36 +1170,41 @@ for(i in SRT)
 
 \newpage
 
-# Progression with days PSO
+## Progression with days PSO
 
-## Progression of S1, S2, CEFX and SEB
-```{r progression}
+### Progression of S1, S2, CEFX and SEB
+```{r progression, fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
 
+facs %>% 
+  mutate(Timepoint = str_replace(Timepoint, "1", "post vacc")) -> facs_prog
+
 for(i in SRT)
   print(
-    facs %>%
+    facs_prog %>%
       filter(Marker1 == "CD4") %>%
     ggplot(., aes(x = factor(Timepoint, 
                              levels = c('W 2', 'W3-6', 'M2-4', 
-                                        'after month 5', '1')), 
+                                        'after month 5', 'post vacc')), 
                   y = !!sym(i), 
                   colour = factor(Dexa))) +
       theme(axis.text.x = element_text(angle = 90)) +
       geom_jitter(width = 0.1, alpha = 0.2) +
+      scale_y_log10() +
+      labs(col = "Dexa") + 
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       scale_fill_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free") +
+                 scales = "free", ncol = 2) +
       geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.4) +
       xlab("Timepoint") +
@@ -1154,20 +1214,21 @@ for(i in SRT)
 
 for(i in SRT)
   print(
-    facs %>%
+    facs_prog %>%
       filter(Marker1 == "CD4") %>%
     ggplot(aes(x = TagPSO, y = !!sym(i), 
                   colour = factor(Dexa))) +
       geom_point(alpha = 0.3) +
-      #scale_y_log10() +
+      labs(col = "Dexa") +
+      scale_y_log10() +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
                                              "CD40L+ TNF-a+","CD137+ GrzB+",
                                              "CD137+ IFN-g+","CD137+ IL-21+",
                                              "CD137+ TNF-a+","CD137+ GrzB-")),
-                 scales = "free") +
+                 scales = "free", ncol = 2) +
       theme(strip.background =element_rect(fill="aliceblue")) +
       geom_smooth(method = "loess", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.4) +
@@ -1179,7 +1240,7 @@ for(i in SRT)
 
 ```
 
-## Progression of PNT
+### Progression of PNT
 ```{r PNTprogression}
 
 PNT %>% 
@@ -1232,13 +1293,14 @@ for(i in strain)
                   colour = factor(Dexa))) +
       theme(axis.text.x = element_text(angle = 90)) +
       geom_jitter(width = 0.1, alpha = 0.2) +
+      labs(col = "Dexa") +
       scale_y_log10() +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       scale_fill_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
       #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
       #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1259,13 +1321,14 @@ for(i in strain)
     ggplot(., aes(x = TagPSO, y = !!sym(i), colour = factor(Dexa))) +
       theme(axis.text.x = element_text(angle = 90)) +
       geom_jitter(width = 0.1, alpha = 0.2) +
+      labs(col = "Dexa") +
       scale_y_log10() +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       scale_fill_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
       #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
       #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1290,16 +1353,17 @@ for(i in strain)
              y = !!sym(i), 
              colour = factor(Dexa),
              group = factor(PatID_Studie1))) +
+    labs(col = "Dexa") +
     theme(axis.text.x = element_text(angle = 90)) +
     #geom_jitter(width = 0.1, alpha = 0.2) +
-    geom_point(position = position_dodge(0.4), alpha = 0.8) +
+    geom_point(position = position_dodge(0.4), alpha = 0.5) +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1326,14 +1390,15 @@ for(i in strain)
              group = factor(PatID_Studie1))) +
     theme(axis.text.x = element_text(angle = 90)) +
     #geom_jitter(width = 0.1, alpha = 0.2) +
-    geom_point(alpha = 0.8) +
+    geom_point(alpha = 0.5) +
+    labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1350,7 +1415,7 @@ for(i in strain)
     theme(strip.background =element_rect(fill="aliceblue")))
 ```
 
-## Progression of IgG
+### Progression of IgG
 
 ```{r IgGprogression}
 
@@ -1363,13 +1428,14 @@ sero %>%
                 colour = factor(Dexa))) +
     theme(axis.text.x = element_text(angle = 90)) +
     geom_jitter(width = 0.1, alpha = 0.2) +
+    labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1391,13 +1457,14 @@ sero %>%
                 colour = factor(Dexa))) +
     theme(axis.text.x = element_text(angle = 90)) +
     geom_jitter(width = 0.1, alpha = 0.2) +
+    labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1421,14 +1488,15 @@ sero %>%
              group = factor(PatID_Studie1))) +
     theme(axis.text.x = element_text(angle = 90)) +
     #geom_jitter(width = 0.1, alpha = 0.2) +
-    geom_point(position = position_dodge(0.4), alpha = 0.8) +
+    geom_point(position = position_dodge(0.4), alpha = 0.5) +
+    labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1452,14 +1520,15 @@ sero %>%
              group = factor(PatID_Studie1))) +
     theme(axis.text.x = element_text(angle = 90)) +
     #geom_jitter(width = 0.1, alpha = 0.2) +
-    geom_point(alpha = 0.8) +
+    geom_point(alpha = 0.5) +
+    labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     scale_fill_manual(breaks = c("1", "0", "3"),
-                      values=c("red", "blue", "green3")) +
+                      values=c("orangered", "blue", "green3")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -1502,45 +1571,16 @@ for(i in SRT)
           geom_violin() + 
           geom_jitter(width = 0.1, alpha = 0.5,
                                       aes(color = factor(Dexa))) + 
+      labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           geom_boxplot(width=.1, alpha = 0.2, outlier.shape = NA) +
           theme_bw() +
           ggtitle(paste0("Sex vs ", i, " (CD4)")) +
           ylab(i) + 
           scale_y_log10() +
           stat_compare_means(comparisons = my_comparisons,
-                             label.y = 1.3, size = 2.5)
-  )
-
-for(i in SRT)
-  print(
-    SRT_sex %>%
-      filter(!is.na(Sex)) %>%
-      filter(Marker1 == "CD4") %>% 
-      as.data.frame() %>%
-      filter(!is.na(!!sym(i))) %>%
-        ggplot(aes(x = Sex, y = !!sym(i))) +
-          #geom_point(alpha = 0.7) + 
-          geom_violin() + 
-          geom_jitter(width = 0.1, alpha = 0.5,
-                                      aes(color = factor(Dexa))) + 
-          scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-          geom_boxplot(width=.1, alpha = 0.2, outlier.shape = NA) +
-          theme_bw() + 
-          facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
-                                             "CD40L+ IFN-g+","CD40L+ IL-21+",
-                                             "CD40L+ TNF-a+","CD137+ GrzB+",
-                                             "CD137+ IFN-g+","CD137+ IL-21+",
-                                             "CD137+ TNF-a+","CD137+ GrzB-")),
-                     scales = "free_y") +
-          theme(strip.background =element_rect(fill="aliceblue")) +
-          ggtitle(paste0("Sex vs ", i, " (CD4)")) +
-          ylab(i) + 
-          scale_y_log10() +
-          stat_compare_means(comparisons = my_comparisons,
-                             size = 2)
+                             size = 4)
   )
 
 # CD8
@@ -1556,16 +1596,53 @@ for(i in SRT)
           #geom_point(alpha = 0.7) + 
           geom_violin() + geom_jitter(width = 0.1, alpha = 0.5,
                                       aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           geom_boxplot(width=.1, alpha = 0.2, outlier.shape = NA) +
           theme_bw() +
           ggtitle(paste0("Sex vs ", i, " (CD8)")) +
           ylab(i) + 
           scale_y_log10() +
           stat_compare_means(comparisons = my_comparisons,
-                             size = 2)
+                             size = 4)
   )
+```
+
+
+
+```{r fig.height = 15, fig.width = 10, tidy=TRUE, tidy.opts=list(width.cutoff=60)}
+for(i in SRT)
+  print(
+    SRT_sex %>%
+      filter(!is.na(Sex)) %>%
+      filter(Marker1 == "CD4") %>% 
+      as.data.frame() %>%
+      filter(!is.na(!!sym(i))) %>%
+        ggplot(aes(x = Sex, y = !!sym(i))) +
+          #geom_point(alpha = 0.7) + 
+          geom_violin() + 
+          geom_jitter(width = 0.1, alpha = 0.5,
+                                      aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
+          scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("orangered", "blue", "green3")) +
+          geom_boxplot(width=.1, alpha = 0.2, outlier.shape = NA) +
+          theme_bw() + 
+          facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+                                             "CD40L+ IFN-g+","CD40L+ IL-21+",
+                                             "CD40L+ TNF-a+","CD137+ GrzB+",
+                                             "CD137+ IFN-g+","CD137+ IL-21+",
+                                             "CD137+ TNF-a+","CD137+ GrzB-")),
+                     scales = "free_y") +
+          theme(strip.background =element_rect(fill="aliceblue")) +
+          ggtitle(paste0("Sex vs ", i, " (CD4)")) +
+          ylab(i) + 
+          scale_y_log10() +
+          stat_compare_means(comparisons = my_comparisons,
+                             size = 3.5)
+  )
+
 
 for(i in SRT)
   print(
@@ -1578,8 +1655,9 @@ for(i in SRT)
           #geom_point(alpha = 0.7) + 
           geom_violin() + geom_jitter(width = 0.1, alpha = 0.5,
                                       aes(color = factor(Dexa))) +
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           geom_boxplot(width=.1, alpha = 0.2, outlier.shape = NA) +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
@@ -1593,12 +1671,12 @@ for(i in SRT)
           ylab(i) + 
           scale_y_log10() +
           stat_compare_means(comparisons = my_comparisons,
-                              size = 2)
+                              size = 3.5)
   )
-
 ```
 
-```{r sex_SRT}
+
+```{r sex_SRT, fig.dim = c(10, 8)}
 
 for(i in SRT)
   print(
@@ -1613,8 +1691,9 @@ for(i in SRT)
           geom_violin() + geom_jitter(width = 0.1, alpha = 0.5,
                                       outlier.shape = NA,
                                       aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           geom_boxplot(width=.1, alpha = 0.2) +
           theme_bw() + facet_wrap(~factor(Timepoint, 
                                           levels = c('W 2', 'W3-6', 
@@ -1626,7 +1705,7 @@ for(i in SRT)
           ylab(i) + 
           scale_y_log10() +
           stat_compare_means(comparisons = my_comparisons,
-                             size = 2)
+                             size = 4)
   )
 
 for(i in SRT)
@@ -1642,8 +1721,9 @@ for(i in SRT)
           geom_violin() + geom_jitter(width = 0.1, alpha = 0.5,
                                       outlier.shape = NA,
                                       aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           geom_boxplot(width=.1, alpha = 0.2) +
           theme_bw() + facet_wrap(~factor(Timepoint, 
                                           levels = c('W 2', 'W3-6', 
@@ -1654,14 +1734,14 @@ for(i in SRT)
           ylab(i) + 
           scale_y_log10() +
           stat_compare_means(comparisons = my_comparisons,
-                             size = 2)
+                             size = 4)
   )
 
 ```
 
 ## Serum ID50 vs disease severity
 
-```{r severity_vs_serum_violin}
+```{r severity_vs_serum_violin, fig.dim = c(10,8)}
 breaks <- 10^(-10:10)
 minor_breaks <- rep(1:9, 21)*(10^rep(-10:10, each=9))
 
@@ -1700,29 +1780,30 @@ for(i in 1:nrow(PNT_Dexa_timepoint))
         PNT_Dexa_timepoint$Timepoint[i] <- "W 2"
     }
   }
-cols <- c("1" = "red", "0" = "blue", "3" = "green3")
+cols <- c("1" = "orangered", "0" = "blue", "3" = "green3")
 # B.1.1.7
 level_order <- c('1', '0', '3')
 PNT_Dexa_timepoint %>%
   #filter(Marker1 == "CD4") %>%
       as.data.frame() %>%
-      ggplot(aes(x = factor(Dexa, level = level_order), y = B.1.1.7)) +
+      ggplot(aes(x = factor(Dexa, level = level_order), y = B.1.1.7, colour = factor(Dexa))) +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-      scale_fill_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
+      # scale_fill_manual(breaks = c("1", "0", "3"),
+      #                   values=c("orangered", "blue", "green3")) +
         geom_jitter() +
         geom_violin(alpha = 0.3) +
+        labs(col = "Dexa") +
         geom_boxplot(width=.1) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("0", "3")), 
-                     label.y = 4.5, size = 2.5) +
+                     label.y = 4.5, size = 3) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("0", "1")), 
-                     label.y = 4.7, size = 2.5) +
+                     label.y = 4.7, size = 3) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("1", "3")), 
-                     label.y = 5, size = 2.5) +
+                     label.y = 5, size = 3) +
         #stat_compare_means(label.y = 5.5, size = 3) +
         scale_y_log10(breaks = breaks, minor_breaks = minor_breaks) +
         annotation_logticks(sides = "l")+
@@ -1740,24 +1821,25 @@ PNT_Dexa_timepoint %>%
 PNT_Dexa_timepoint %>%
   #filter(Marker1 == "CD4") %>%
       as.data.frame() %>%
-      ggplot(aes(x = B.1.617.2, y = factor(Dexa, level = level_order))) +
+      ggplot(aes(x = B.1.617.2, y = factor(Dexa, level = level_order), colour = factor(Dexa))) +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         geom_jitter(width = 0.05) +
         geom_violin(width = 0.5) +
+        labs(col = "Dexa") +
         geom_boxplot(width=.1) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("0", "3")), 
-                     label.y = 4.5, size = 2.5) +
+                     label.y = 4.5, size = 3) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("0", "1")), 
-                     label.y = 4.7, size = 2.5) +
+                     label.y = 4.7, size = 3) +
         stat_compare_means(method = "wilcox.test", 
                            comparisons = list(c("1", "3")), 
-                     label.y = 5, size = 2.5) +
+                     label.y = 5, size = 3) +
         scale_x_log10(breaks = breaks, minor_breaks = minor_breaks) +
         scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         annotation_logticks(sides = "l")+
         theme_bw() + facet_wrap(~factor(Timepoint, 
                                         levels=c('W 2', 'W3-6', 
@@ -1769,8 +1851,6 @@ PNT_Dexa_timepoint %>%
         ylab("Severity (dexa levels: 1(Dexa), 0(no Dexa), 3(mild))") +
         xlab("Serum ID50: B.1.617.2")+ 
         coord_flip()
-
-
 ```
 
 ## Age vs Serum ID50
@@ -1818,8 +1898,9 @@ PNT_Age_Sex %>%
   as.data.frame() %>%
     ggplot(aes(x = Age, y = B.1.1.7)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) + 
+      labs(col = "Dexa") +
       scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
       theme_bw() + facet_wrap(.~factor(Timepoint, 
                                        levels = c('W3-6', 'M2-4', 
                                                   'after month 5', 
@@ -1836,8 +1917,9 @@ PNT_Age_Sex %>%
   as.data.frame() %>%
   ggplot(aes(x = Age, y = B.1.617.2)) +
     geom_point(alpha = 0.7, aes(color = factor(Dexa))) + 
+    labs(col = "Dexa") +
     scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
     theme_bw() + facet_wrap(.~factor(Timepoint, 
                                      levels = c('W3-6', 'M2-4', 
                                                 'after month 5', 
@@ -1851,9 +1933,47 @@ PNT_Age_Sex %>%
 
 ```
 
+
 ## Sex vs Serum ID50
 
-```{r}
+```{r, fig.dim = c(10,8)}
+PNT %>% 
+  left_join(., meta) %>% 
+  select(PatID_Studie1, Sex, Age, B.1.1.7, B.1.617.2, Days, Dexa) %>% 
+  distinct() %>% 
+  mutate(Timepoint = rep(0, nrow(.))) %>% 
+  filter(!is.na(Sex)) -> PNT_Age_Sex
+
+for(i in 1:nrow(PNT_Age_Sex))
+  #if(is.na(PNT_Age_Sex$Timepoint[i]))
+  {
+    if(grepl(PNT_Age_Sex$Days[i], pattern = "d25-60"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "W3-6"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "d39-60"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "W3-6"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "d39-46"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "W3-6"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "5-7mo"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "after month 5"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "PostVac"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "post vacc"
+    }else if(grepl(PNT_Age_Sex$Days[i], pattern = "2-4mo"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "M2-4"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "d80-140"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "M2-4"
+    } else if(grepl(PNT_Age_Sex$Days[i], pattern = "6"))
+      {
+        PNT_Age_Sex$Timepoint[i] <- "W 2"
+    }
+  }
+
 my_comparisons <- list(c("Männlich", "Weiblich"))
 # B.1.1.7
 
@@ -1861,10 +1981,11 @@ PNT_Age_Sex %>%
   as.data.frame() %>%
       ggplot(aes(x = Sex, y = B.1.1.7)) +
         #geom_point(alpha = 0.7) + 
-        #geom_violin() + 
+        geom_violin() + 
         geom_jitter(width = 0.1, aes(color = factor(Dexa))) + 
+        labs(col = "Dexa") +
         scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         geom_boxplot(width=.1, alpha = 0.2) +
         theme_bw() + facet_wrap(.~factor(Timepoint, 
                                          levels = c('W3-6', 'M2-4', 
@@ -1875,17 +1996,18 @@ PNT_Age_Sex %>%
         ylab("Serum ID50: B.1.1.7 levels") + 
         scale_y_log10() +
         stat_compare_means(comparisons = my_comparisons,
-                           size = 2.5)
+                           size = 3.5)
 
 # B.1.617.2
 PNT_Age_Sex %>%
   as.data.frame() %>%
       ggplot(aes(x = Sex, y = B.1.617.2)) +
         #geom_point(alpha = 0.7) + 
-        #geom_violin() + 
+        geom_violin() + 
         geom_jitter(width = 0.1, aes(color = factor(Dexa))) + 
+        labs(col = "Dexa") +
         scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         geom_boxplot(width=.1, alpha = 0.2) +
         theme_bw() + facet_wrap(.~factor(Timepoint, 
                                          levels = c('W3-6', 'M2-4', 
@@ -1896,13 +2018,13 @@ PNT_Age_Sex %>%
         ylab("Serum ID50: B.1.1.7 levels") + 
         scale_y_log10() +
         stat_compare_means(comparisons = my_comparisons,
-                           label.y = 4.5, size = 2.5)
+                           label.y = 4.5, size = 3.5)
 
 
 ```
 
-## Correlation between SRT for each marker, separately for CD4 and CD8
-```{r }
+## Correlation between SRTs at different timepoints, separately for CD4 and CD8
+```{r fig.dim=c(10,8)}
 # All markers together
 #CD 4
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -1913,10 +2035,10 @@ for(i in SRT)
         mutate(Timepoint = str_replace(Timepoint, "1", "post vacc")) %>% 
         filter(Marker1 == "CD4") %>%
         ggplot(., aes_string(x = i, y = j)) + 
-          geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                      shape = factor(Timepoint))) + 
+          geom_point(alpha = 0.5, aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           theme_bw() + facet_wrap(.~factor(Timepoint, 
                                            levels = c('W 2', 'W3-6', 
                                                       'M2-4', 
@@ -1926,7 +2048,7 @@ for(i in SRT)
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("SRT correlation: CD4 cells") + 
           stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+                   size = 4))
 
 # CD 8
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -1937,10 +2059,10 @@ for(i in SRT)
         mutate(Timepoint = str_replace(Timepoint, "1", "post vacc"))%>%
         filter(Marker1 == "CD8") %>%
         ggplot(., aes_string(x = i, y = j)) + 
-          geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                      shape = factor(Timepoint))) + 
+          geom_point(alpha = 0.5, aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           theme_bw() + facet_wrap(.~factor(Timepoint, 
                                            levels = c('W 2', 'W3-6', 
                                                       'M2-4', 
@@ -1949,11 +2071,12 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("SRT correlation: CD8 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 ```
 
-```{r}
+## Correlation between SRTs, separated by markers
+
+```{r, fig.dim=c(10,8)}
 # Separate plots for separate markers
 # CD 4
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -1963,10 +2086,10 @@ for(i in SRT)
       print(facs %>%
         filter(Marker1 == "CD4") %>%
         ggplot(., aes_string(x = i, y = j)) + 
-          geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                      shape = factor(Timepoint))) + 
+          geom_point(alpha = 0.7, aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -1976,13 +2099,12 @@ for(i in SRT)
                scales = "free_y") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("SRT correlation: CD4 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 
 ```
 
-```{r}
+```{r, fig.dim=c(10,8)}
 # CD 8
 SRT <- c("S1", "S2", "CEFX", "SEB")
 for(i in SRT)
@@ -1991,10 +2113,10 @@ for(i in SRT)
       print(facs %>%
         filter(Marker1 == "CD8") %>%
         ggplot(., aes_string(x = i, y = j)) + 
-          geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                      shape = factor(Timepoint))) + 
+          geom_point(alpha = 0.7, aes(color = factor(Dexa))) + 
+          labs(col = "Dexa") +
           scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2004,8 +2126,7 @@ for(i in SRT)
                scales = "free_y") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("SRT correlation: CD8 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 
 ```
@@ -2013,8 +2134,8 @@ for(i in SRT)
 \newpage
 
 ## Correlation between SRT, separately for each Dexa level
+```{r fig.dim=c(10,8)}
 
-```{r dexa_3}
 # dexa_3 CD4
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -2025,6 +2146,7 @@ for(i in SRT)
         filter(Dexa == 3 & Marker1 == "CD4") %>% 
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                          "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2034,8 +2156,8 @@ for(i in SRT)
                                   scales = "free") +
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 3 (mild COVID), CD4 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson",size = 4))
+
 
 # dexa 3 CD8
 
@@ -2047,6 +2169,7 @@ for(i in SRT)
         filter(Dexa == 3 & Marker1 == "CD8") %>% 
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                          "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2056,13 +2179,12 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 3 (mild COVID), CD8 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 ```
 
 
-```{r dexa_0}
+```{r dexa_0, fig.dim=c(10,8)}
 # dexa_0 CD4
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -2073,6 +2195,7 @@ for(i in SRT)
         filter(Dexa == 0 & Marker1 == "CD4") %>%
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                          "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2082,8 +2205,7 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 0 (severe, no dexa), CD4 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 # dexa 0 CD8
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -2094,6 +2216,7 @@ for(i in SRT)
         filter(Dexa == 0 & Marker1 == "CD8") %>%
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                          "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2103,12 +2226,11 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 0 (severe, no dexa), CD8 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 ```
 
-```{r dexa_1}
+```{r dexa_1, fig.dim = c(10,8)}
 # dexa_1 CD4
 
 SRT <- c("S1", "S2", "CEFX", "SEB")
@@ -2119,6 +2241,7 @@ for(i in SRT)
         filter(Dexa == 1 & Marker1 == "CD4") %>%
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, 
                              levels = c("CD40L+ CD137+","CD40L+ GrzB+",
@@ -2129,8 +2252,7 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 1 (severe, dexa treatment), CD4 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 # dexa 1 CD8
 
@@ -2142,6 +2264,7 @@ for(i in SRT)
         filter(Dexa == 1 & Marker1 == "CD8") %>%
         ggplot(., aes_string(x = i, y = j)) + 
           geom_point(alpha = 0.7, aes(color = factor(Timepoint))) + 
+          labs(col = "Time point") +
           theme_bw() + 
           facet_wrap(~factor(Marker2, 
                              levels = c("CD40L+ CD137+","CD40L+ GrzB+",
@@ -2152,15 +2275,56 @@ for(i in SRT)
                                   scales = "free") + 
           theme(strip.background =element_rect(fill="aliceblue")) +
           ggtitle("Dexa = 1 (severe, dexa treatment), CD8 cells") + 
-          stat_cor(method = "pearson", 
-                   label.x = 0.2, label.y = 0.2, size = 2))
+          stat_cor(method = "pearson", size = 4))
 
 ```
 
 \newpage
 
-## Correlation of PNT vs SRT
-```{r SRT_vs_PNT_1, results = 'hide', fig.show = 'all'}
+<!-- ## Correlation of PNT vs SRT -->
+<!-- ```{r SRT_vs_PNT_1, results = 'hide', fig.show = 'all'} -->
+<!-- # all dexa levels -->
+
+<!-- strain <- c("B.1.1.7", "B.1.617.2") -->
+<!-- SRT <- c("S1", "S2", "CEFX", "SEB") -->
+
+<!-- PNT %>%  -->
+<!--   left_join(., facs) %>%  -->
+<!--   select(PatID_Studie1, Dexa, Timepoint, S1, S2, CEFX, SEB,  -->
+<!--          B.1.1.7, B.1.617.2, Marker1, Marker2) -> PNT_SRT -->
+
+<!-- for(i in SRT) -->
+<!--   for(j in strain) -->
+<!--     print(PNT_SRT %>% -->
+<!--       filter(Marker1 == "CD4") %>% -->
+<!--       as.data.frame() %>% -->
+<!--       ggplot(., aes_string(x = j, y = i)) + -->
+<!--         geom_point(alpha = 0.7, aes(color = factor(Dexa),  -->
+<!--                                     shape = factor(Timepoint))) + -->
+<!--         scale_color_manual(breaks = c("1", "0", "3"), -->
+<!--                         values=c("orangered", "blue", "green3")) + -->
+<!--         theme_bw() + -->
+<!--         ggtitle("PNT vs SRT correlation: CD4 cells") + -->
+<!--         stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 3)) -->
+
+
+<!-- for(i in SRT) -->
+<!--   for(j in strain) -->
+<!--     print(PNT_SRT %>% -->
+<!--       filter(Marker1 == "CD8") %>% -->
+<!--       as.data.frame() %>% -->
+<!--       ggplot(., aes_string(x = j, y = i)) + -->
+<!--         geom_point(alpha = 0.7, aes(color = factor(Dexa),  -->
+<!--                                     shape = factor(Timepoint))) + -->
+<!--         scale_color_manual(breaks = c("1", "0", "3"), -->
+<!--                         values=c("orangered", "blue", "green3")) + -->
+<!--         theme_bw() + -->
+<!--         ggtitle("PNT vs SRT correlation: CD8 cells") + -->
+<!--         stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 3)) -->
+<!-- ``` -->
+
+## Correlation of PNT vs SRT, separately for each marker
+```{r SRT_vs_PNT, results = 'hide', fig.show = 'all', fig.dim=c(10,8)}
 # all dexa levels
 
 strain <- c("B.1.1.7", "B.1.617.2")
@@ -2169,7 +2333,8 @@ SRT <- c("S1", "S2", "CEFX", "SEB")
 PNT %>% 
   left_join(., facs) %>% 
   select(PatID_Studie1, Dexa, Timepoint, S1, S2, CEFX, SEB, 
-         B.1.1.7, B.1.617.2, Marker1, Marker2) -> PNT_SRT
+  B.1.1.7, B.1.617.2, Marker1, Marker2) %>% 
+  mutate(Timepoint = str_replace(Timepoint, "1", "post vacc")) -> PNT_SRT
 
 for(i in SRT)
   for(j in strain)
@@ -2177,48 +2342,10 @@ for(i in SRT)
       filter(Marker1 == "CD4") %>%
       as.data.frame() %>%
       ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
+        geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+        labs(col = "Dexa") +
         scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-        theme_bw() +
-        ggtitle("PNT vs SRT correlation: CD4 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 3))
-
-
-for(i in SRT)
-  for(j in strain)
-    print(PNT_SRT %>%
-      filter(Marker1 == "CD8") %>%
-      as.data.frame() %>%
-      ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
-        scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-        theme_bw() +
-        ggtitle("PNT vs SRT correlation: CD8 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 3))
-```
-
-## Correlation of PNT vs SRT, separately for each marker
-```{r SRT_vs_PNT, results = 'hide', fig.show = 'all'}
-# all dexa levels
-
-strain <- c("B.1.1.7", "B.1.617.2")
-SRT <- c("S1", "S2", "CEFX", "SEB")
-
-
-for(i in SRT)
-  for(j in strain)
-    print(PNT_SRT %>%
-      filter(Marker1 == "CD4") %>%
-      as.data.frame() %>%
-      ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
-        scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         theme_bw() + 
         facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2228,7 +2355,7 @@ for(i in SRT)
                    scales = "free") +
         theme(strip.background =element_rect(fill="aliceblue")) +
         ggtitle("PNT vs SRT correlation: CD4 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 2))
+        stat_cor(method = "pearson", size = 4))
 
 
 for(i in SRT)
@@ -2237,10 +2364,10 @@ for(i in SRT)
       filter(Marker1 == "CD8") %>%
       as.data.frame() %>%
       ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
+        geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+        labs(col = "Dexa") +
         scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
+                        values=c("orangered", "blue", "green3")) +
         theme_bw() + 
         facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
                                              "CD40L+ IFN-g+","CD40L+ IL-21+",
@@ -2250,39 +2377,5 @@ for(i in SRT)
                    scales = "free") +
         theme(strip.background =element_rect(fill="aliceblue")) +
         ggtitle("PNT vs SRT correlation: CD8 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 2))
-```
-
-```{r, fig.show = 'all'}
-
-for(i in SRT)
-  for(j in strain)
-    print(PNT_SRT %>%
-      filter(Marker1 == "CD4") %>%
-      as.data.frame() %>%
-      ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
-        scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-        theme_bw() + facet_wrap(.~Timepoint) +
-        theme(strip.background =element_rect(fill="aliceblue")) +
-        ggtitle("PNT vs SRT correlation: CD4 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 3))
-
-
-for(i in SRT)
-  for(j in strain)
-    print(PNT_SRT %>%
-      filter(Marker1 == "CD8") %>%
-      as.data.frame() %>%
-      ggplot(., aes_string(x = j, y = i)) +
-        geom_point(alpha = 0.7, aes(color = factor(Dexa), 
-                                    shape = factor(Timepoint))) +
-        scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("red", "blue", "green3")) +
-        theme_bw() + facet_wrap(.~Timepoint) +
-        theme(strip.background =element_rect(fill="aliceblue")) +
-        ggtitle("PNT vs SRT correlation: CD8 cells") +
-        stat_cor(method = "pearson", label.x = 0.2, label.y = 0.2, size = 2))
+        stat_cor(method = "pearson", size = 4))
 ```
