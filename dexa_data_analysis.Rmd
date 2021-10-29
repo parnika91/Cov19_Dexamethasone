@@ -130,6 +130,37 @@ SRT <- c("S1", "S2", "CEFX", "SEB")
 strain <- c("B.1.1.7", "B.1.617.2")
 level_order <- c('1', '0', '3')
 
+## How many patients have at least three time points in each measurement.
+# facs_pat_3timepoints <- facs %>% 
+#   select(PatID_Studie1, Timepoint) %>% 
+#   distinct() %>% 
+#   group_by(PatID_Studie1) %>% 
+#   mutate(number_of_FACS_timepoints = n()) %>% 
+#   mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>% 
+#   select(!Timepoint) %>% 
+#   distinct()
+# write.table(facs_pat_3timepoints, "FACS_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+# 
+# PNT_pat_3timepoints <- PNT %>% 
+#   select(PatID_Studie1, Days) %>% 
+#   distinct() %>% 
+#   group_by(PatID_Studie1) %>% 
+#   mutate(number_of_PNT_timepoints = n()) %>% 
+#   mutate(measured_at = paste0(Days, collapse = ", ")) %>% 
+#   select(!Days) %>% 
+#   distinct()
+# write.table(PNT_pat_3timepoints, "PNT_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+# 
+# sero_pat_3timepoints <- sero %>% 
+#   select(PatID_Studie1, Timepoint) %>% 
+#   distinct() %>% 
+#   group_by(PatID_Studie1) %>% 
+#   mutate(number_of_Serology_timepoint = n()) %>% 
+#   mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>% 
+#   select(!Timepoint) %>% 
+#   distinct()
+# write.table(sero_pat_3timepoints, "Serology_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+
 ```
 
 \pagebreak
