@@ -1,0 +1,165 @@
+---
+title: "Dexamethasone treatment - Manuscript figures"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  toc: TRUE
+---
+
+```{r, echo = F}
+knitr::opts_chunk$set(warning = F, message = F)
+knitr::opts_chunk$set(fig.pos = "!H", out.extra = "")
+#knitr::opts_chunk$set(tidy.opts=list(width.cutoff=80),tidy=TRUE)
+
+```
+
+```{r load_libraries, echo = F, message = F, warning = F}
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(broom)
+library(stringr)
+#library(ggstatsplot)
+```
+
+
+```{r load_datasets}
+# delta alpha clinical table
+PNT <- read_excel("../2021-09-23_Dexa_Charite_UKK_all results Alpha and Delta clinical.xlsx") %>% 
+  select("PatID Studie 1", 
+         "Tag PSO", 
+         "Days", 
+         "Dexamethason", 
+         "Serum ID50: Variant B.1.1.7", 
+         "Serum ID50: Variant B.1.617.2") %>%
+  rename(PatID_Studie1 = `PatID Studie 1`, 
+         TagPSO = `Tag PSO`,
+         B.1.1.7 = `Serum ID50: Variant B.1.1.7`, 
+         B.1.617.2 = `Serum ID50: Variant B.1.617.2`,
+         Dexa = Dexamethason) %>%
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  filter(!(Days == "nd")) %>% 
+  mutate(TagPSO = replace(TagPSO, PatID_Studie1=="435", "6")) %>% 
+  mutate(TagPSO = as.numeric(TagPSO))
+
+# FACS results
+facs <- read_excel("../20211014 Mastertable FACS results LB final.xlsx") %>% 
+  select("Studie 1", 
+         "PatID Studie 1", 
+         "Zeitraum 2021 09 03 und post Impfung W3-6", 
+         "Tag PSO", 
+         "Dexa", 
+         "Marker 1", 
+         "Marker 2", 
+         "#CEFX-unstim negativ auf 0", 
+         "#S1-unstim negativ auf 0", 
+         "#S2-unstim negativ auf 0", 
+         "#SEB-unstim negativ auf 0",
+         "ausschliessen") %>%
+  mutate(ausschliessen = replace_na(ausschliessen, 0)) %>% 
+  rename(Studie1 = `Studie 1`, 
+         PatID_Studie1 = `PatID Studie 1`, 
+         Timepoint = `Zeitraum 2021 09 03 und post Impfung W3-6`,
+         TagPSO = `Tag PSO`, 
+         Marker1 = `Marker 1`, 
+         Marker2 = `Marker 2`) %>%
+  rename(CEFX = `#CEFX-unstim negativ auf 0`, 
+         S1 = `#S1-unstim negativ auf 0`, 
+         S2 = `#S2-unstim negativ auf 0`, 
+         SEB = `#SEB-unstim negativ auf 0`) %>%
+  filter(!is.na(CEFX) | !is.na(S1) | !is.na(S2) | !is.na(SEB)) %>%
+  mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
+  mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2")) %>% 
+  filter(!(PatID_Studie1 == "183" | 
+           PatID_Studie1 == "22" | 
+           PatID_Studie1 == "53" | 
+           PatID_Studie1 == "88" | 
+           PatID_Studie1 == "115" | 
+           PatID_Studie1 == "120" | 
+           PatID_Studie1 == "133" | 
+           PatID_Studie1 == "153")) %>% 
+  filter(!(ausschliessen == 1))
+
+
+# meta data
+meta <- read_excel("../Metadaten_FACS_PNT_2021 10 22_CT.xlsx") %>%
+  rename(PatID_Studie1 = `PatID Studie 1 kurz`, 
+         Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
+         Sex = `Geschlecht bei der Geburt` ,
+         WHO = `#WHO max`, 
+         Charlson = `#Charlson Comorbidity Index STP`,
+         VacDaysDiff = `#DateDiff Impfung PSO`) %>%
+  mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
+  filter(!grepl(.$Bemerkung, pattern = "Immun", ignore.case = T)) %>% 
+  filter(!(PatID_Studie1 == "183" | 
+           PatID_Studie1 == "22" | 
+           PatID_Studie1 == "53" | 
+           PatID_Studie1 == "88" | 
+           PatID_Studie1 == "115" | 
+           PatID_Studie1 == "120" | 
+           PatID_Studie1 == "133" | 
+           PatID_Studie1 == "153"))
+
+# serology
+sero <- read_excel("../Results_20211006_post vacc corrected CT_LB.xlsx") %>% 
+  rename(PatID_Studie1 = `PatID Studie 1`,
+         IgG = `IgG BAU/ml`,
+         TagPSO = `Tag PSO`, 
+         Timepoint = Zeitraum, 
+         Dexa = `Dexamethason0 = no1 = yes3 = not applicable`,
+         ausschliessen_imm = `ausschliessen (Immunsuppression)`) %>% 
+  mutate(ausschliessen_imm = replace_na(ausschliessen_imm, 0)) %>%
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  mutate(IgG = as.numeric(str_replace(IgG, c(","), "\\."))) %>% 
+  filter(!(PatID_Studie1 == "183" | 
+           PatID_Studie1 == "22" | 
+           PatID_Studie1 == "53" | 
+           PatID_Studie1 == "88" | 
+           PatID_Studie1 == "115" | 
+           PatID_Studie1 == "120" | 
+           PatID_Studie1 == "133" | 
+           PatID_Studie1 == "153")) %>% 
+  filter(!ausschliessen_imm == 1) %>% 
+  mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2"))
+
+SRT <- c("S1", "S2", "CEFX", "SEB")
+strain <- c("B.1.1.7", "B.1.617.2")
+level_order <- c('1', '0', '3')
+
+## How many patients have at least three time points in each measurement.
+facs_pat_3timepoints <- facs %>%
+  select(PatID_Studie1, Timepoint) %>%
+  distinct() %>%
+  group_by(PatID_Studie1) %>%
+  mutate(number_of_FACS_timepoints = n()) %>%
+  mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
+  select(!Timepoint) %>%
+  distinct()
+# write.table(facs_pat_3timepoints, "FACS_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+# 
+PNT_pat_3timepoints <- PNT %>%
+  select(PatID_Studie1, Days) %>%
+  distinct() %>%
+  group_by(PatID_Studie1) %>%
+  mutate(number_of_PNT_timepoints = n()) %>%
+  mutate(measured_at = paste0(Days, collapse = ", ")) %>%
+  select(!Days) %>%
+  distinct()
+# write.table(PNT_pat_3timepoints, "PNT_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+# 
+sero_pat_3timepoints <- sero %>%
+  select(PatID_Studie1, Timepoint) %>%
+  distinct() %>%
+  group_by(PatID_Studie1) %>%
+  mutate(number_of_Sero_timepoint = n()) %>%
+  mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
+  select(!Timepoint) %>%
+  distinct()
+# write.table(sero_pat_3timepoints, "Serology_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
+
+```
