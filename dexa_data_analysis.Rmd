@@ -3048,3 +3048,23 @@ for(i in marker)
       theme(strip.background =element_rect(fill="aliceblue")) +
       stat_cor(method = "spearman", size = 4))
 ```
+
+```{r xml_handling}
+require(XML)
+library("methods")
+
+# read xml file
+xmldataframe <- xmlToDataFrame("../LabAllClean2110.xml")
+
+measurements <- c("CRP", "CRP HP",
+                  "procalcitonin", "procalcitonin HP",
+                  "Leukozyten", "Leukozyten abs. (WBC/TNC)",
+                  "Ferritin", "Ferritin HP",
+                  "Interleukin-6",
+                  "LDH",
+                  "Lymphozyten",
+                  "Neutrophilen")
+
+xmldataframe %>% 
+  filter(str_detect(N2LABOR001_N2KATTEXT, measurements)) -> selected_measurements
+```
