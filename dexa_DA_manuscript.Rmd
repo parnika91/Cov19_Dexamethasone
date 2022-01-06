@@ -28,26 +28,45 @@ library(stringr)
 
 ```{r load_datasets}
 # delta alpha clinical table
-PNT <- read_excel("../2021-09-23_Dexa_Charite_UKK_all results Alpha and Delta clinical.xlsx") %>% 
-  select("PatID Studie 1", 
-         "Tag PSO", 
-         "Days", 
-         "Dexamethason", 
-         "Serum ID50: Variant B.1.1.7", 
-         "Serum ID50: Variant B.1.617.2") %>%
-  rename(PatID_Studie1 = `PatID Studie 1`, 
+PNT <- read_excel("../2021-12-30_Dexa_Charite_UKK_PSV_all results a and d sanity check pending.xlsx") %>% 
+  select(`sanity check needed`,
+         contains("Studie 1 von 2012-12-30_all results +basic clinical"),
+         contains("PatID Studie 1"),
+         contains("exclude"),
+         contains("Tag PSO"),
+         contains("PSO/PI"),
+         contains("Zeitraum corrected"),
+         contains("Serum"),
+         contains("Dexa")) %>% 
+  rename(sanity = `sanity check needed`,
+         Studie1 = `Studie 1 von 2012-12-30_all results +basic clinical`,
+         PatID_Studie1 = `PatID Studie 1 von 2012-12-30_all results +basic clinical`, 
+         exclude_immuno = `# exclude (immunosuppression, other)`,
+         exclude_B.1.1.7 = `#exclude for B1.1.7`,
+         exclude_B.1.617.2 = `#exclude for B.1.617.2`,
          TagPSO = `Tag PSO`,
+         Timepoint = `Zeitraum corrected`,
          B.1.1.7 = `Serum ID50: Variant B.1.1.7`, 
          B.1.617.2 = `Serum ID50: Variant B.1.617.2`,
-         Dexa = Dexamethason) %>%
+         Dexa = `Dexamethason von 2012-12-30_all results +basic clinical`) %>%
   mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
   mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
-  filter(!(Days == "nd")) %>% 
-  mutate(TagPSO = replace(TagPSO, PatID_Studie1=="435", "6")) %>% 
-  mutate(TagPSO = as.numeric(TagPSO))
+  mutate(TagPSO = as.numeric(TagPSO)) %>%
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>%
+  mutate(sanity = as.numeric(replace_na(sanity, "0"))) %>% 
+  filter(sanity == 0) %>% 
+  mutate(exclude_immuno = as.numeric(replace_na(exclude_immuno, "0"))) %>% 
+  filter(exclude_immuno == 0) %>% 
+  mutate(exclude_B.1.1.7 = as.numeric(replace_na(exclude_B.1.1.7, "0"))) %>% 
+  mutate(exclude_B.1.617.2 = as.numeric(replace_na(exclude_B.1.617.2, "0")))
 
 # FACS results
-facs <- read_excel("../20211014 Mastertable FACS results LB final.xlsx") %>% 
+facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>% 
   select("Studie 1", 
          "PatID Studie 1", 
          "Zeitraum 2021 09 03 und post Impfung W3-6", 
@@ -86,7 +105,7 @@ facs <- read_excel("../20211014 Mastertable FACS results LB final.xlsx") %>%
 
 
 # meta data
-meta <- read_excel("../Metadaten_FACS_PNT_2021 10 22_CT.xlsx") %>%
+meta <- read_excel("../metadata_all_patients_2022 01 04 CT.xlsx") %>%
   rename(PatID_Studie1 = `PatID Studie 1 kurz`, 
          Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
          Sex = `Geschlecht bei der Geburt` ,
@@ -105,7 +124,7 @@ meta <- read_excel("../Metadaten_FACS_PNT_2021 10 22_CT.xlsx") %>%
            PatID_Studie1 == "153"))
 
 # serology
-sero <- read_excel("../Results_20211006_post vacc corrected CT_LB.xlsx") %>% 
+sero <- read_excel("../all results serology 2021 12 and 10 sanity checks CT 22 01 04.xlsx") %>% 
   rename(PatID_Studie1 = `PatID Studie 1`,
          IgG = `IgG BAU/ml`,
          TagPSO = `Tag PSO`, 
@@ -127,39 +146,39 @@ sero <- read_excel("../Results_20211006_post vacc corrected CT_LB.xlsx") %>%
   filter(!ausschliessen_imm == 1) %>% 
   mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2"))
 
-SRT <- c("S1", "S2", "CEFX", "SEB")
+SRT <- c("S1", "S2")
 strain <- c("B.1.1.7", "B.1.617.2")
 level_order <- c('1', '0', '3')
 
 ## How many patients have at least three time points in each measurement.
-facs_pat_3timepoints <- facs %>%
-  select(PatID_Studie1, Timepoint) %>%
-  distinct() %>%
-  group_by(PatID_Studie1) %>%
-  mutate(number_of_FACS_timepoints = n()) %>%
-  mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
-  select(!Timepoint) %>%
-  distinct()
+# facs_pat_3timepoints <- facs %>%
+#   select(PatID_Studie1, Timepoint) %>%
+#   distinct() %>%
+#   group_by(PatID_Studie1) %>%
+#   mutate(number_of_FACS_timepoints = n()) %>%
+#   mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
+#   select(!Timepoint) %>%
+#   distinct()
 # write.table(facs_pat_3timepoints, "FACS_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
 # 
-PNT_pat_3timepoints <- PNT %>%
-  select(PatID_Studie1, Days) %>%
-  distinct() %>%
-  group_by(PatID_Studie1) %>%
-  mutate(number_of_PNT_timepoints = n()) %>%
-  mutate(measured_at = paste0(Days, collapse = ", ")) %>%
-  select(!Days) %>%
-  distinct()
+# PNT_pat_3timepoints <- PNT %>%
+#   select(PatID_Studie1, Days) %>%
+#   distinct() %>%
+#   group_by(PatID_Studie1) %>%
+#   mutate(number_of_PNT_timepoints = n()) %>%
+#   mutate(measured_at = paste0(Days, collapse = ", ")) %>%
+#   select(!Days) %>%
+#   distinct()
 # write.table(PNT_pat_3timepoints, "PNT_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
 # 
-sero_pat_3timepoints <- sero %>%
-  select(PatID_Studie1, Timepoint) %>%
-  distinct() %>%
-  group_by(PatID_Studie1) %>%
-  mutate(number_of_Sero_timepoint = n()) %>%
-  mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
-  select(!Timepoint) %>%
-  distinct()
+# sero_pat_3timepoints <- sero %>%
+#   select(PatID_Studie1, Timepoint) %>%
+#   distinct() %>%
+#   group_by(PatID_Studie1) %>%
+#   mutate(number_of_Sero_timepoint = n()) %>%
+#   mutate(measured_at = paste0(Timepoint, collapse = ", ")) %>%
+#   select(!Timepoint) %>%
+#   distinct()
 # write.table(sero_pat_3timepoints, "Serology_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
 
 ```
