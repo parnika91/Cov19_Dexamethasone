@@ -117,12 +117,18 @@ facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>%
 
 # meta data
 meta <- read_excel("../metadata_all_patients_2022 01 04 CT.xlsx") %>%
+  select(contains("sanity"),
+         contains("Studie 1"),
+         contains("Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre"),
+         contains("Geschlecht bei der Geburt"),
+         contains("Dexamethason"),
+         contains("Immunosuppression"),
+         contains("Bemerkung"),
+         contains("Start Dexa"),
+         contains("Ende Dexa")) %>% 
   rename(PatID_Studie1 = `PatID Studie 1`, 
          Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
          Sex = `Geschlecht bei der Geburt` ,
-         WHO = `#WHO max`, 
-         Charlson = `#Charlson Comorbidity Index STP`,
-         VacDaysDiff = `#DateDiff Impfung PSO`,
          Studie1 = `Studie 1`) %>%
   mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
   filter(!grepl(.$Bemerkung, pattern = "Immun", ignore.case = T)) %>% 
@@ -134,6 +140,8 @@ meta <- read_excel("../metadata_all_patients_2022 01 04 CT.xlsx") %>%
            PatID_Studie1 == "120" | 
            PatID_Studie1 == "133" | 
            PatID_Studie1 == "153")) %>% 
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>%
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
   mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
   mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
                                tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
@@ -143,12 +151,23 @@ meta <- read_excel("../metadata_all_patients_2022 01 04 CT.xlsx") %>%
 
 # serology
 sero <- read_excel("../all results serology 2021 12 and 10 sanity checks CT 22 01 04.xlsx") %>% 
+  select(contains("sanity"),
+         contains("Studie 1"),
+         contains("Entnahmedatum"),
+         contains("Tag PSO"),
+         contains("Bemerkung"),
+         contains("Zeitraum"),
+         contains("IgG"),
+         contains("Dexa"),
+         contains("ausschliessen (Immunsuppression, other)")) %>% 
   rename(PatID_Studie1 = `PatID Studie 1`,
-         IgG = `IgG BAU/ml`,
+         Studie1 = `Studie 1`,
+         IgG = `IgG Value BAU/ml >=7.1 reactive`,
          TagPSO = `Tag PSO`, 
          Timepoint = Zeitraum, 
-         Dexa = `Dexamethason0 = no1 = yes3 = not applicable`,
-         ausschliessen_imm = `ausschliessen (Immunsuppression)`) %>% 
+         Dexa = `Dexamethason`,
+         ausschliessen_imm = `ausschliessen (Immunsuppression, other)`,
+         sanity = "needs sanity check") %>% 
   mutate(ausschliessen_imm = replace_na(ausschliessen_imm, 0)) %>%
   mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
   mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
@@ -164,11 +183,15 @@ sero <- read_excel("../all results serology 2021 12 and 10 sanity checks CT 22 0
   filter(!ausschliessen_imm == 1) %>% 
   mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2")) %>% 
   mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>%
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
   mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
                                tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
                                              PatID_Studie1, 
                                              sep = "")),
-                               sep = ""))
+                               sep = "")) %>% 
+  mutate(sanity = as.numeric(replace_na(sanity, "0"))) %>% 
+  filter(sanity == 0)
 
 SRT <- c("S1", "S2")
 strain <- c("B.1.1.7", "B.1.617.2")
