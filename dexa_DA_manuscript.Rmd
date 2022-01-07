@@ -103,7 +103,7 @@ facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>%
            PatID_Studie1 == "153")) %>% 
   filter(!(ausschliessen == 1)) %>% 
   mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
-  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+  mutate(PatID_Studie1_short = paste(tolower(paste(substr(Studie1, 1, 2))), 
                                tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
                                              PatID_Studie1, 
                                              sep = "")),
@@ -228,4 +228,495 @@ level_order <- c('1', '0', '3')
 #   distinct()
 # write.table(sero_pat_3timepoints, "Serology_measurement_timepoints.tsv", row.names = F, quote = F, sep = "\t")
 
+```
+
+```{r tables_for_Lara}
+
+# convert facs table to wide format for selected markers, for each patient
+facs_wide <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>% 
+  select("Studie 1", 
+         "PatID Studie 1", 
+         "timepoints 2022", 
+         "Dexa", 
+         "Marker 1", 
+         "Marker 2", 
+         "#S1-unstim log", 
+         "#S2-unstim log", 
+         "ausschliessen") %>%
+  mutate(ausschliessen = replace_na(ausschliessen, 0)) %>% 
+  rename(Studie1 = `Studie 1`, 
+         PatID_Studie1 = `PatID Studie 1`, 
+         Timepoint = `timepoints 2022`,
+         Marker1 = `Marker 1`, 
+         Marker2 = `Marker 2`,
+         S1 = `#S1-unstim log`, 
+         S2 = `#S2-unstim log`) %>%
+  filter(!is.na(S1) | !is.na(S2)) %>%
+  mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
+  mutate(Timepoint = replace(Timepoint, PatID_Studie1=="435", "W 2")) %>% 
+  filter(!(PatID_Studie1 == "183" | 
+           PatID_Studie1 == "22" | 
+           PatID_Studie1 == "53" | 
+           PatID_Studie1 == "88" | 
+           PatID_Studie1 == "115" | 
+           PatID_Studie1 == "120" | 
+           PatID_Studie1 == "133" | 
+           PatID_Studie1 == "153")) %>% 
+  filter(!(ausschliessen == 1)) %>% 
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1_short = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>% 
+  mutate(Timepoint = str_replace(Timepoint, c("1"), "PI")) %>% 
+  mutate(Timepoint = str_replace(Timepoint, c("M2-4"), "M3")) %>% 
+  mutate(Timepoint = str_replace(Timepoint, c("after month 5"), "M5+")) %>% 
+  mutate(Timepoint = str_replace(Timepoint, c("W3-6"), "W4")) %>% 
+  mutate(Timepoint = str_replace(Timepoint, c("W 2"), "W2"))
+
+### S1 ###
+
+# 1 #
+CD40CD137 <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ CD137+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S1) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S1,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S1", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$PI[[i]][1]))
+    postvac[i] <- CD40CD137$PI[[i]][1]
+CD40CD137$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$W2[[i]][1]))
+    W2[i] <- CD40CD137$W2[[i]][1]
+CD40CD137$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$W4[[i]][1]))
+    W4[i] <- CD40CD137$W4[[i]][1]
+CD40CD137$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$M3[[i]][1]))
+    M3[i] <- CD40CD137$M3[[i]][1]
+CD40CD137$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$`M5+`[[i]][1]))
+    M5[i] <- CD40CD137$`M5+`[[i]][1]
+CD40CD137$`M5+` <-M5
+
+# 2 #
+CD40TNF <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ TNF-a+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S1) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S1,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S1", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$PI[[i]][1]))
+    postvac[i] <- CD40TNF$PI[[i]][1]
+CD40TNF$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$W2[[i]][1]))
+    W2[i] <- CD40TNF$W2[[i]][1]
+CD40TNF$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$W4[[i]][1]))
+    W4[i] <- CD40TNF$W4[[i]][1]
+CD40TNF$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$M3[[i]][1]))
+    M3[i] <- CD40TNF$M3[[i]][1]
+CD40TNF$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$`M5+`[[i]][1]))
+    M5[i] <- CD40TNF$`M5+`[[i]][1]
+CD40TNF$`M5+` <-M5
+
+
+# 3 #
+CD40IL21 <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ IL-21+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S1) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S1,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S1", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$PI[[i]][1]))
+    postvac[i] <- CD40IL21$PI[[i]][1]
+CD40IL21$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$W2[[i]][1]))
+    W2[i] <- CD40IL21$W2[[i]][1]
+CD40IL21$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$W4[[i]][1]))
+    W4[i] <- CD40IL21$W4[[i]][1]
+CD40IL21$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$M3[[i]][1]))
+    M3[i] <- CD40IL21$M3[[i]][1]
+CD40IL21$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$`M5+`[[i]][1]))
+    M5[i] <- CD40IL21$`M5+`[[i]][1]
+CD40IL21$`M5+` <-M5
+
+# 4 #
+livecells <- facs_wide %>% 
+  filter(Marker2 == "live cells") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S1) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S1,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S1", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$PI[[i]][1]))
+    postvac[i] <- livecells$PI[[i]][1]
+livecells$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$W2[[i]][1]))
+    W2[i] <- livecells$W2[[i]][1]
+livecells$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$W4[[i]][1]))
+    W4[i] <- livecells$W4[[i]][1]
+livecells$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$M3[[i]][1]))
+    M3[i] <- livecells$M3[[i]][1]
+livecells$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$`M5+`[[i]][1]))
+    M5[i] <- livecells$`M5+`[[i]][1]
+livecells$`M5+` <-M5
+
+write.csv(CD40CD137, file = "../S1_CD40CD137.csv", row.names = F, quote = F)
+write.csv(CD40TNF, file = "../S1_CD40TNF.csv", row.names = F, quote = F)
+write.csv(CD40CD137, file = "../S1_CD40IL21.csv", row.names = F, quote = F)
+write.csv(CD40CD137, file = "../S1_livecells.csv", row.names = F, quote = F)
+
+
+
+```
+
+```{r S2}
+### S2 ###
+
+# 1 #
+CD40CD137 <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ CD137+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S2) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S2,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S2", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$PI[[i]][1]))
+    postvac[i] <- CD40CD137$PI[[i]][1]
+CD40CD137$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$W2[[i]][1]))
+    W2[i] <- CD40CD137$W2[[i]][1]
+CD40CD137$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$W4[[i]][1]))
+    W4[i] <- CD40CD137$W4[[i]][1]
+CD40CD137$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$M3[[i]][1]))
+    M3[i] <- CD40CD137$M3[[i]][1]
+CD40CD137$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40CD137))
+  if(!is.null(CD40CD137$`M5+`[[i]][1]))
+    M5[i] <- CD40CD137$`M5+`[[i]][1]
+CD40CD137$`M5+` <-M5
+
+# 2 #
+CD40TNF <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ TNF-a+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S2) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S2,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S2", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$PI[[i]][1]))
+    postvac[i] <- CD40TNF$PI[[i]][1]
+CD40TNF$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$W2[[i]][1]))
+    W2[i] <- CD40TNF$W2[[i]][1]
+CD40TNF$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$W4[[i]][1]))
+    W4[i] <- CD40TNF$W4[[i]][1]
+CD40TNF$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$M3[[i]][1]))
+    M3[i] <- CD40TNF$M3[[i]][1]
+CD40TNF$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40TNF))
+  if(!is.null(CD40TNF$`M5+`[[i]][1]))
+    M5[i] <- CD40TNF$`M5+`[[i]][1]
+CD40TNF$`M5+` <-M5
+
+
+# 3 #
+CD40IL21 <- facs_wide %>% 
+  filter(Marker2 == "CD40L+ IL-21+") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S2) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S2,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S2", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$PI[[i]][1]))
+    postvac[i] <- CD40IL21$PI[[i]][1]
+CD40IL21$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$W2[[i]][1]))
+    W2[i] <- CD40IL21$W2[[i]][1]
+CD40IL21$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$W4[[i]][1]))
+    W4[i] <- CD40IL21$W4[[i]][1]
+CD40IL21$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$M3[[i]][1]))
+    M3[i] <- CD40IL21$M3[[i]][1]
+CD40IL21$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(CD40IL21))
+  if(!is.null(CD40IL21$`M5+`[[i]][1]))
+    M5[i] <- CD40IL21$`M5+`[[i]][1]
+CD40IL21$`M5+` <-M5
+
+# 4 #
+livecells <- facs_wide %>% 
+  filter(Marker2 == "live cells") %>% 
+  select(Studie1,
+         PatID_Studie1,
+         PatID_Studie1_short,
+         Dexa,
+         Timepoint,
+         Marker2,
+         S2) %>% 
+  group_by(Timepoint) %>%
+  mutate(row = row_number()) %>%
+  tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, PatID_Studie1_short, Dexa, Marker2), 
+                     names_from = Timepoint, 
+                     values_from = S2,
+                     values_fn = list) %>% 
+  mutate(Stimulation = rep("S2", nrow(.))) %>% 
+  mutate(PI = na_if(PI, c("NULL"))) %>%
+  mutate(W2 = na_if(W2, c("NULL"))) %>%
+  mutate(W4 = na_if(W4, c("NULL"))) %>%
+  mutate(M3 = na_if(M3, c("NULL"))) %>%
+  mutate(`M5+` = na_if(`M5+`, c("NULL")))
+
+postvac <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$PI[[i]][1]))
+    postvac[i] <- livecells$PI[[i]][1]
+livecells$PI <-postvac
+
+W2 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$W2[[i]][1]))
+    W2[i] <- livecells$W2[[i]][1]
+livecells$W2 <-W2
+
+W4 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$W4[[i]][1]))
+    W4[i] <- livecells$W4[[i]][1]
+livecells$W4 <-W4
+
+M3 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$M3[[i]][1]))
+    M3[i] <- livecells$M3[[i]][1]
+livecells$M3 <-M3
+
+M5 <- c()
+for(i in 1:nrow(livecells))
+  if(!is.null(livecells$`M5+`[[i]][1]))
+    M5[i] <- livecells$`M5+`[[i]][1]
+livecells$`M5+` <-M5
+
+write.csv(CD40CD137, file = "../S2_CD40CD137.csv", row.names = F, quote = F)
+write.csv(CD40TNF, file = "../S2_CD40TNF.csv", row.names = F, quote = F)
+write.csv(CD40CD137, file = "../S2_CD40IL21.csv", row.names = F, quote = F)
+write.csv(CD40CD137, file = "../S2_livecells.csv", row.names = F, quote = F)
 ```
