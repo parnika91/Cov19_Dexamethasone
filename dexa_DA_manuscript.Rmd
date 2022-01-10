@@ -99,7 +99,7 @@ facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>%
            PatID_Studie1 == "153")) %>% 
   filter(!(ausschliessen == 1)) %>% 
   mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
-  mutate(PatID_Studie1_short = paste(tolower(paste(substr(Studie1, 1, 2))), 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
                                tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
                                              PatID_Studie1, 
                                              sep = "")),
@@ -1288,7 +1288,99 @@ ggsave(paste0("MSimages/IgG progression DaysPSO byDexa.png"), width = 20, height
 
 ```
 
-```{r Association of SRT and PNT, SRT and IgG, IgG and PNT at the respective timepoints}
+```{r Association of IgG and PNT at the respective timepoints}
+
+Sero_PNT <- sero %>% 
+  left_join(., PNT)
+
+# IgG vs B.1.1.7
+
+Sero_PNT %>% 
+  #filter(!Sero_PNT$Timepoint == "PI") %>% 
+  ggplot(aes(x = B.1.1.7, y = IgG)) +
+  geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                     values=c("orangered", "blue", "green3"),
+                     labels = c("D+", "D-", "mild")) +
+  facet_wrap(~factor(Timepoint, levels = c('W2', 'W4', 'M3', 'M5+', 'PI')), 
+             scales = "free",
+             ncol = 2) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("B.1.1.7") + ylab("IgG BAU/ml") +
+  stat_cor(method = "spearman", size = 3) +
+  geom_smooth(method = "lm", se = F)
+ggsave(paste0("MSimages/IgGvsB117.png"), width = 20, height = 15, units = "cm")
+
+
+Sero_PNT %>% 
+  ggplot(aes(x = B.1.1.7, y = IgG, colour = factor(Dexa))) +
+  geom_point(alpha = 0.7) +
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("orangered", "blue", "green3"),
+                     labels = c("D+", "D-", "mild")) +
+  facet_wrap(~factor(Timepoint, levels = c('W2', 'W4', 'M3', 'M5+', 'PI')), 
+             scales = "free",
+             ncol = 2) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("B.1.1.7") + ylab("IgG BAU/ml") +
+  stat_cor(method = "spearman", size = 3) +
+  geom_smooth(method = "lm", se = F)
+ggsave(paste0("MSimages/IgGvsB117_individualDexa.png"), width = 20, height = 15, units = "cm")
+
+
+# IgG vs B.1.617.2
+
+Sero_PNT %>% 
+  #filter(!Sero_PNT$Timepoint == "PI") %>% 
+  ggplot(aes(x = B.1.617.2, y = IgG)) +
+  geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                     values=c("orangered", "blue", "green3"),
+                     labels = c("D+", "D-", "mild")) +
+  facet_wrap(~factor(Timepoint, levels = c('W2', 'W4', 'M3', 'M5+', 'PI')), 
+             scales = "free",
+             ncol = 2) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("B.1.617.2") + ylab("IgG BAU/ml") +
+  stat_cor(method = "spearman", size = 3) +
+  geom_smooth(method = "lm", se = F)
+ggsave(paste0("MSimages/IgGvsB16172.png"), width = 20, height = 15, units = "cm")
+
+
+Sero_PNT %>% 
+  ggplot(aes(x = B.1.617.2, y = IgG, colour = factor(Dexa))) +
+  geom_point(alpha = 0.7) +
+  labs(col = "Dexa") +
+  scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("orangered", "blue", "green3"),
+                     labels = c("D+", "D-", "mild")) +
+  facet_wrap(~factor(Timepoint, levels = c('W2', 'W4', 'M3', 'M5+', 'PI')), 
+             scales = "free",
+             ncol = 2) +
+  theme_bw() +
+  theme(strip.background =element_rect(fill="aliceblue")) +
+  ggtitle("IgG vs PNT measures at the same time point") +
+  xlab("B.1.617.2") + ylab("IgG BAU/ml") +
+  stat_cor(method = "spearman", size = 3) +
+  geom_smooth(method = "lm", se = F)
+ggsave(paste0("MSimages/IgGvsB16172_individualDexa.png"), width = 20, height = 15, units = "cm")
+
+```
+
+```{r Associatin of IgG and SRT at timepoints}
+Sero_SRT <- sero %>% 
+  left_join(., facs)
+
+
 ```
 
 ```{r early vs late}
