@@ -3062,9 +3062,31 @@ measurements <- c("CRP", "CRP HP",
                   "Ferritin", "Ferritin HP",
                   "Interleukin-6",
                   "LDH",
-                  "Lymphozyten",
-                  "Neutrophilen")
+                  "Lymphozyten", "Lymphozyten abs",
+                  "Neutrophil"
+                  )
 
 xmldataframe %>% 
-  filter(str_detect(N2LABOR001_N2KATTEXT, measurements)) -> selected_measurements
+  filter(str_detect(N2LABOR001_N2KATTEXT, measurements)) %>% 
+  filter(N2LABOR001_N2KATTEXT != "CRP kardiologisch°") %>% 
+  #filter(N2LABOR001_N2KATTEXT != "Ferritin Se") %>% 
+  #filter(N2LABOR001_N2KATTEXT != "Ferritin SE") %>% 
+  filter(N2LABOR001_N2KATTEXT != "GLDH HP") %>% 
+  filter(N2LABOR001_N2KATTEXT != "LDH Pkt°°") %>% 
+  filter(N2LABOR001_N2KATTEXT != "B-Zellen in % der Lymphozyten") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Leukozyten Pkt.") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Leukozytenzylinder") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Lymphozyten %") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Lymphozyten % Li") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Lymphozyten abs i.Li") %>% 
+  filter(N2LABOR001_N2KATTEXT != "Lymphozyten i.Li") %>% 
+  filter(N2LABOR001_N2KATTEXT != "NK-Zellen in % der Lymphozyten") %>% 
+  filter(N2LABOR001_N2KATTEXT != "NK-Zellen, % der Lymphozyten") %>% 
+  filter(N2LABOR001_N2KATTEXT != "T-Zellen in % der Lymphozyten") -> selected_measurements
+selected_measurements %>% 
+  filter(PATID %in% meta$`PatID Studie 1`) -> selected_measurements_pat
+
+write.csv2(selected_measurements_pat, "LabAllClean2110_selectedlabmeasurements.csv", quote = F, row.names = F)
+write.csv2(xmldataframe, "LabAllClean2110.csv", quote = F, row.names = F)
+
 ```
