@@ -59,7 +59,8 @@ PNT <- read_excel("../2021-12-30_Dexa_Charite_UKK_PSV_all results a and d sanity
   mutate(exclude_immuno = as.numeric(replace_na(exclude_immuno, "0"))) %>% 
   filter(exclude_immuno == 0) %>% 
   mutate(exclude_B.1.1.7 = as.numeric(replace_na(exclude_B.1.1.7, "0"))) %>% 
-  mutate(exclude_B.1.617.2 = as.numeric(replace_na(exclude_B.1.617.2, "0")))
+  mutate(exclude_B.1.617.2 = as.numeric(replace_na(exclude_B.1.617.2, "0"))) #%>% 
+  #mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
 
 # FACS results
 facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>% 
@@ -991,6 +992,7 @@ print(
       #            scales = "free") +
       facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  #ncol = 3,
+                 scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.4) +
@@ -1027,6 +1029,7 @@ print(
       #            scales = "free") +
       facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  #ncol = 3,
+                 scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.4) +
@@ -1071,6 +1074,7 @@ print(
         #            scales = "free") +
         facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  ncol = 3,
+                 scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
         geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.7) +
@@ -1117,6 +1121,7 @@ print(
         #            scales = "free") +
         facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  ncol = 3,
+                 scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
         geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.7) +
@@ -1232,6 +1237,7 @@ sero %>%
     #            scales = "free") +
     facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  ncol = 3,
+               scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.7) +
@@ -1273,6 +1279,7 @@ sero %>%
     #            scales = "free") +
     facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  ncol = 3,
+               scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
                   se = F, size = 0.7) +
@@ -1291,12 +1298,13 @@ ggsave(paste0("MSimages/IgG progression DaysPSO byDexa.png"), width = 20, height
 ```{r Association of IgG and PNT at the respective timepoints}
 
 Sero_PNT <- sero %>% 
-  left_join(., PNT)
+  select(PatID_Studie1, Dexa, Timepoint, IgG) %>% 
+  full_join(., PNT)
 
 # IgG vs B.1.1.7
 
 Sero_PNT %>% 
-  #filter(!Sero_PNT$Timepoint == "PI") %>% 
+  filter(!Sero_PNT$Timepoint == "PI") %>% 
   ggplot(aes(x = B.1.1.7, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
   labs(col = "Dexa") +
@@ -1316,6 +1324,7 @@ ggsave(paste0("MSimages/IgGvsB117.png"), width = 20, height = 15, units = "cm")
 
 
 Sero_PNT %>% 
+  filter(!Sero_PNT$Timepoint == "PI") %>% 
   ggplot(aes(x = B.1.1.7, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
   labs(col = "Dexa") +
@@ -1337,7 +1346,7 @@ ggsave(paste0("MSimages/IgGvsB117_individualDexa.png"), width = 20, height = 15,
 # IgG vs B.1.617.2
 
 Sero_PNT %>% 
-  #filter(!Sero_PNT$Timepoint == "PI") %>% 
+  filter(!Sero_PNT$Timepoint == "PI") %>% 
   ggplot(aes(x = B.1.617.2, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
   labs(col = "Dexa") +
@@ -1357,11 +1366,12 @@ ggsave(paste0("MSimages/IgGvsB16172.png"), width = 20, height = 15, units = "cm"
 
 
 Sero_PNT %>% 
+  filter(!Sero_PNT$Timepoint == "PI") %>% 
   ggplot(aes(x = B.1.617.2, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("1", "0", "3"),
-                        values=c("orangered", "blue", "green3"),
+                     values=c("orangered", "blue", "green3"),
                      labels = c("D+", "D-", "mild")) +
   facet_wrap(~factor(Timepoint, levels = c('W2', 'W4', 'M3', 'M5+', 'PI')), 
              scales = "free",
@@ -1377,14 +1387,161 @@ ggsave(paste0("MSimages/IgGvsB16172_individualDexa.png"), width = 20, height = 1
 ```
 
 ```{r Associatin of IgG and SRT at timepoints}
-Sero_SRT <- sero %>% 
-  left_join(., facs)
+Sero_SRT <- sero %>%
+  select(PatID_Studie1, Dexa, Timepoint, IgG) %>% 
+  full_join(facs, .)
 
+for(i in SRT)
+{
+  print(
+    Sero_SRT %>% 
+      filter(Marker1=="CD4") %>% 
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
+      ggplot(aes(x = IgG, y = !!sym(i))) +
+      geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      labs(col = "Dexa") +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                        values=c("orangered", "blue", "green3"),
+                        labels = c("D+", "D-", "mild")) +
+      facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
+                                             "CD40L+ IL-21+",
+                                             "CD40L+ TNF-a+")),
+                 scales = "free") +
+      theme_bw() +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      ggtitle("IgG vs SRT (CD4)") +
+      xlab("IgG BAU/ml") +
+      stat_cor(method = "spearman", size = 3.5) +
+      geom_smooth(method = "lm", se = F))
+  ggsave(paste0("MSimages/IgGvs", i, ".png"), width = 20, height = 15, units = "cm")
+}
+```
+
+```{r Associatin of PNT and SRT at timepoints}
+PNT_SRT <- PNT %>%
+  select(PatID_Studie1, Dexa, Timepoint, B.1.1.7, B.1.617.2, exclude_B.1.1.7, exclude_B.1.617.2) %>% 
+  full_join(facs, .)
+
+# B.1.1.7
+for(i in SRT)
+{ 
+  print(PNT_SRT %>%
+    filter(Marker1 == "CD4") %>%
+    filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
+    filter(Marker2 == "CD40L+ CD137+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD40L+ TNF-a+") %>% 
+    filter(exclude_B.1.1.7 == 0) %>% 
+    as.data.frame() %>%
+    ggplot(., aes(x = B.1.1.7, y = !!sym(i))) +
+      geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      labs(col = "Dexa") +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("orangered", "blue", "green3")) +
+      theme_bw() + 
+      facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
+                                             "CD40L+ IL-21+",
+                                             "CD40L+ TNF-a+")),
+                 scales = "free") +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      ggtitle(paste("B.1.1.7 vs ", i)) +
+      stat_cor(method = "spearman", size = 4))
+  ggsave(paste0("MSimages/B.1.1.7vs", i, ".png"), width = 20, height = 15, units = "cm")
+}
+
+# B.1.617.2
+for(i in SRT)
+{ 
+  print(PNT_SRT %>%
+    filter(Marker1 == "CD4") %>%
+    filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
+    filter(Marker2 == "CD40L+ CD137+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD40L+ TNF-a+") %>% 
+    filter(exclude_B.1.617.2 == 0) %>% 
+    as.data.frame() %>%
+    ggplot(., aes(x = B.1.617.2, y = !!sym(i))) +
+      geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      
+      labs(col = "Dexa") +
+      scale_color_manual(breaks = c("1", "0", "3"),
+                      values=c("orangered", "blue", "green3")) +
+      theme_bw() + 
+      facet_wrap(~factor(Marker2),#, levels = c("CD40L+ CD137+",
+                                             #"CD40L+ IL-21+",
+                                             #"CD40L+ TNF-a+")),
+                 scales = "free") +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      ggtitle(paste("B.1.617.2 vs ", i)) +
+      stat_cor(method = "spearman", size = 4))
+  ggsave(paste0("MSimages/B.1.617.2vs", i, ".png"), width = 20, height = 15, units = "cm")
+}
 
 ```
+
 
 ```{r early vs late}
 ```
 
 ```{r Evolution of T-cells, PNT and IgG before and after dexa}
+
+# serology
+
+sero_valid_dates <- sero %>% 
+  filter(!is.na(`#Ende Dexa`))
+
+# make it wide
+print(
+  sero_evol <- sero_valid_dates %>% 
+  # select(Studie1,
+  #        PatID_Studie1,
+  #        Dexa,
+  #        Timepoint,
+  #        Marker2,
+  #        S1) %>%
+  #group_by(PatID_Studie1) %>%
+  mutate(row = row_number()) %>%
+  mutate(Entnahmedatum = gsub(".", "-", Entnahmedatum, fixed = T)) %>% 
+  mutate(`#Ende Dexa` = gsub(".", "-", `#Ende Dexa`, fixed = T)) %>%
+  mutate(`#Start Dexa` = gsub(".", "-", `#Start Dexa`, fixed = T)) %>%
+  mutate(End_to_sample = as.numeric(as.Date(Entnahmedatum, format = "%d-%m-%Y") - as.Date(`#Ende Dexa`, format = "%d-%m-%Y"))) %>% 
+  mutate(Dexa_end_zero = rep(0,nrow(.))) %>% 
+  # tidyr::pivot_wider(id_cols = c(PatID_Studie1, Studie1, Dexa, 
+  #                                `#Start Dexa`, `#Ende Dexa`, 
+  #                                `#Days Start Dexa PSO`, `#Duration Dexa`),
+  #                    names_from = Timepoint,
+  #                    values_from = IgG,
+  #                    values_fn = list) %>%
+  ggplot(aes(x = End_to_sample, 
+             y = IgG, 
+             colour = factor(Dexa),
+             group = factor(PatID_Studie1))) +
+        labs(col = "Dexa") +
+        #theme(axis.text.x = element_text(angle = 90)) +
+        #geom_jitter(width = 0.1, alpha = 0.2) +
+        geom_point(position = position_dodge(0.4), alpha = 0.5) +
+        scale_y_log10() +
+        #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+        #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+        scale_color_manual(breaks = c("1", "0", "3"),
+                          values=c("orangered", "blue", "green3"),
+                        labels = c("D+", "D-", "mild")) +
+        scale_fill_manual(breaks = c("1", "0", "3"),
+                          values=c("orangered", "blue", "green3"),
+                        labels = c("D+", "D-", "mild")) +
+        # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+        #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+        #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+        #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+        #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+        #            scales = "free") +
+        facet_wrap(. ~ factor(Dexa, levels = c('1', '0', '3')),
+                 ncol = 3,
+                 scales = "free") +
+                 #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+        geom_line(position = position_dodge(0.4), 
+                  aes(group = factor(PatID_Studie1)), alpha = 0.8, 
+                  size = 0.2) +
+        xlab("Time point") +
+        ggtitle("IgG evolution") +
+        theme_bw() +
+        #theme(legend.position = "none") +
+        theme(strip.background =element_rect(fill="aliceblue")))
+
 ```
