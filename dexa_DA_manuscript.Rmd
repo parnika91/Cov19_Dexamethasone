@@ -71,10 +71,10 @@ facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>%
          "Dexa", 
          "Marker 1", 
          "Marker 2", 
-         "#CEFX-unstim negativ auf 0", 
-         "#S1-unstim negativ auf 0", 
-         "#S2-unstim negativ auf 0", 
-         "#SEB-unstim negativ auf 0",
+         "#CEFX-unstim log", 
+         "#S1-unstim log", 
+         "#S2-unstim log", 
+         "#SEB-unstim log",
          "ausschliessen") %>%
   mutate(ausschliessen = replace_na(ausschliessen, 0)) %>% 
   rename(Studie1 = `Studie 1`, 
@@ -83,10 +83,10 @@ facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>%
          TagPSO = `Tag PSO`, 
          Marker1 = `Marker 1`, 
          Marker2 = `Marker 2`) %>%
-  rename(CEFX = `#CEFX-unstim negativ auf 0`, 
-         S1 = `#S1-unstim negativ auf 0`, 
-         S2 = `#S2-unstim negativ auf 0`, 
-         SEB = `#SEB-unstim negativ auf 0`) %>%
+  rename(CEFX = `#CEFX-unstim log`, 
+         S1 = `#S1-unstim log`, 
+         S2 = `#S2-unstim log`, 
+         SEB = `#SEB-unstim log`) %>%
   filter(!is.na(CEFX) | !is.na(S1) | !is.na(S2) | !is.na(SEB)) %>%
   mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
   filter(!(ausschliessen == 1)) %>% 
@@ -707,7 +707,7 @@ for(i in SRT)
                     y = !!sym(i), 
                     colour = factor(Dexa))) +
         theme(axis.text.x = element_text(angle = 90)) +
-        geom_jitter(width = 0.1, alpha = 0.2) +
+        geom_jitter(width = 0.1, alpha = 0.5) +
         scale_y_log10() +
         labs(col = "Dexa") + 
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
@@ -744,7 +744,7 @@ for(i in SRT)
       #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% 
     ggplot(aes(x = TagPSO, y = !!sym(i), 
                   colour = factor(Dexa))) +
-      geom_point(alpha = 0.3) +
+      geom_point(alpha = 0.5) +
       labs(col = "Dexa") +
       scale_y_log10() +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1102,7 +1102,7 @@ sero %>%
                 y = IgG, 
                 colour = factor(Dexa))) +
     theme(axis.text.x = element_text(angle = 90)) +
-    geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_jitter(width = 0.1, alpha = 0.5) +
     labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
@@ -1132,7 +1132,7 @@ sero %>%
                 y = IgG, 
                 colour = factor(Dexa))) +
     theme(axis.text.x = element_text(angle = 90)) +
-    geom_jitter(width = 0.1, alpha = 0.2) +
+    geom_jitter(width = 0.1, alpha = 0.5) +
     labs(col = "Dexa") +
     scale_y_log10() +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
@@ -1252,6 +1252,7 @@ Sero_PNT %>%
   ggplot(aes(x = B.1.1.7, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
   labs(col = "Dexa") +
+  scale_y_log10() +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M3', 'M5+')), 
@@ -1271,6 +1272,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.1.7, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
+  scale_y_log10() +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                       values = c("orangered", "blue", "green3")) +
@@ -1293,6 +1295,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.617.2, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
+  scale_y_log10() +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1313,6 +1316,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.617.2, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
+  scale_y_log10() +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1343,20 +1347,21 @@ for(i in SRT)
       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      scale_y_log10() +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
-      #facet_wrap(~Marker2, scales ="free") +
-      facet_wrap(~factor(Marker2, levels = c("CD40L+ GrzB+",
-                                             "CD137+ GrzB+")),
-                 scales = "free") +
+      facet_wrap(~Marker2, scales ="free") +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ GrzB+",
+      #                                        "CD137+ GrzB+")),
+      #            scales = "free") +
       theme_bw() +
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle("IgG vs SRT (CD4)") +
       xlab("IgG BAU/ml") +
       stat_cor(method = "spearman", size = 3.5) +
       geom_smooth(method = "lm", se = F))
-  ggsave(paste0("MSimages/IgG vs ", i, ".png"), width = 20, height = 10, units = "cm")
+  ggsave(paste0("MSimages/IgG vs ", i, " all markers.png"), width = 20, height = 10, units = "cm")
 }
 ```
 
@@ -1374,19 +1379,20 @@ print(PNT_SRT %>%
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S1)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      scale_y_log10() +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       theme_bw() + 
-      #facet_wrap(~Marker2, scales = "free") +
-      facet_wrap(~factor(Marker2, levels = c("CD40L+ IFN-g+",
-                                             "CD40L+ IL-21+",
-                                             "CD137+ IL-21+")),
-                 scales = "free") +
+      facet_wrap(~Marker2, scales = "free") +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ IFN-g+",
+      #                                        "CD40L+ IL-21+",
+      #                                        "CD137+ IL-21+")),
+      #            scales = "free") +
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.1.7 vs S1")) +
       stat_cor(method = "spearman", size = 4))
-ggsave("MSimages/B.1.1.7 vs S1.png", width = 20, height = 10, units = "cm")
+ggsave("MSimages/B.1.1.7 vs S1 all markers.png", width = 20, height = 10, units = "cm")
 
 # B.1.1.7 vs S2
 print(PNT_SRT %>%
@@ -1397,21 +1403,22 @@ print(PNT_SRT %>%
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S2)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      scale_y_log10() +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       theme_bw() + 
-      #facet_wrap(~Marker2, scales = "free") +
-      facet_wrap(~factor(Marker2, levels = c("CD137+ IFN-g+",
-                                             "CD40L+ IL-21+",
-                                             "CD137+ TNF-a")),
-                 scales = "free") +
+      facet_wrap(~Marker2, scales = "free") +
+      # facet_wrap(~factor(Marker2, levels = c("CD137+ IFN-g+",
+      #                                        "CD40L+ IL-21+",
+      #                                        "CD137+ TNF-a")),
+      #            scales = "free") +
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.1.7 vs S2")) +
       stat_cor(method = "spearman", size = 4))
-ggsave("MSimages/B.1.1.7 vs S2.png", width = 20, height = 10, units = "cm")
+ggsave("MSimages/B.1.1.7 vs S2 all markers.png", width = 20, height = 10, units = "cm")
 
-# B.1.617.2
+# B.1.617.2 vs S1
 print(PNT_SRT %>%
     filter(Marker1 == "CD4") %>%
     filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
@@ -1421,19 +1428,45 @@ print(PNT_SRT %>%
     ggplot(., aes(x = B.1.617.2, y = S1)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
       
+      scale_y_log10() +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       theme_bw() + 
-      #facet_wrap(~Marker2, scales = "free") +
-      facet_wrap(~factor(Marker2),#, levels = c("CD40L+ CD137+",
-                                             #"CD40L+ IL-21+",
-                                             #"CD40L+ TNF-a+")),
-                 scales = "free") +
+      facet_wrap(~Marker2, scales = "free") +
+      # facet_wrap(~factor(Marker2),#, levels = c("CD40L+ CD137+",
+      #                                        #"CD40L+ IL-21+",
+      #                                        #"CD40L+ TNF-a+")),
+      #            scales = "free") +
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.617.2 vs S1")) +
       stat_cor(method = "spearman", size = 4))
-ggsave(paste0("MSimages/B.1.617.2 vs S1.png"), width = 10, height = 10, units = "cm")
+ggsave(paste0("MSimages/B.1.617.2 vs S1 all markers.png"), width = 10, height = 10, units = "cm")
+
+# B.1.617.2 vs S2
+print(PNT_SRT %>%
+    filter(Marker1 == "CD4") %>%
+    filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
+    filter(Marker2 == "CD40L+ IL-21+") %>% 
+    filter(exclude_B.1.617.2 == 0) %>% 
+    as.data.frame() %>%
+    ggplot(., aes(x = B.1.617.2, y = S2)) +
+      geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
+      
+      scale_y_log10() +
+      labs(col = "Dexa") +
+      scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      theme_bw() + 
+      facet_wrap(~Marker2, scales = "free") +
+      # facet_wrap(~factor(Marker2),#, levels = c("CD40L+ CD137+",
+      #                                        #"CD40L+ IL-21+",
+      #                                        #"CD40L+ TNF-a+")),
+      #            scales = "free") +
+      theme(strip.background =element_rect(fill="aliceblue")) +
+      ggtitle(paste("B.1.617.2 vs S2")) +
+      stat_cor(method = "spearman", size = 4))
+ggsave(paste0("MSimages/B.1.617.2 vs S2 all markers.png"), width = 10, height = 10, units = "cm")
 
 ```
 
