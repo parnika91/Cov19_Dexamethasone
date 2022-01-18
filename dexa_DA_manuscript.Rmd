@@ -63,7 +63,7 @@ PNT <- read_excel("../2021-12-30_Dexa_Charite_UKK_PSV_all results a and d sanity
   mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
 
 # FACS results
-facs <- read_excel("../20220104 Mastertable FACS incl. dead and VC.xlsx") %>% 
+facs <- read_excel("../20220118 Mastertable FACS incl. dead and VC.xlsx") %>% 
   select("Studie 1", 
          "PatID Studie 1", 
          "timepoints 2022", 
@@ -129,7 +129,7 @@ meta <- read_excel("../metadata_all_patients_2022 01 07 CT.xlsx") %>%
   mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
 
 # serology
-sero <- read_excel("../all serology 2021 12 and 10 sanity checks completed +clinical.xlsx") %>% 
+sero <- read_excel("../all serology 2021 12 and 10 final_IgG below 7 set 1.xlsx") %>% 
   select(contains("Studie 1"),
          contains("Entnahmedatum"),
          contains("Tag PSO"),
@@ -140,7 +140,7 @@ sero <- read_excel("../all serology 2021 12 and 10 sanity checks completed +clin
          contains("ausschliessen (Immunsuppression, other)")) %>% 
   rename(PatID_Studie1 = `PatID Studie 1 von all results serology 2021 12 and 10 sanity checks completed`,
          Studie1 = `Studie 1 von all results serology 2021 12 and 10 sanity checks completed`,
-         IgG = `IgG Value BAU/ml >=7.1 reactive`,
+         IgG = `IgG Value <7 set to 1`,
          TagPSO = `Tag PSO`, 
          Timepoint = Zeitraum, 
          Dexa = `Dexamethason von all results serology 2021 12 and 10 sanity checks completed`,
@@ -1361,11 +1361,11 @@ for(i in SRT)
       xlab("IgG BAU/ml") +
       stat_cor(method = "spearman", size = 3.5) +
       geom_smooth(method = "lm", se = F))
-  ggsave(paste0("MSimages/IgG vs ", i, " all markers.png"), width = 20, height = 10, units = "cm")
+  ggsave(paste0("MSimages/IgG vs ", i, ".png"), width = 20, height = 10, units = "cm")
 }
 ```
 
-```{r Associatin of PNT and SRT at timepoints}
+```{r Association of PNT and SRT at timepoints}
 PNT_SRT <- PNT %>%
   select(PatID_Studie1, Dexa, Timepoint, B.1.1.7, B.1.617.2, exclude_B.1.1.7, exclude_B.1.617.2) %>% 
   full_join(facs, .)
@@ -1374,7 +1374,7 @@ PNT_SRT <- PNT %>%
 print(PNT_SRT %>%
     filter(Marker1 == "CD4") %>%
     filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-    filter(Marker2 == "CD40L+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ IL-21+") %>% 
+    #ilter(Marker2 == "CD40L+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ IL-21+") %>% 
     filter(exclude_B.1.1.7 == 0) %>% 
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S1)) +
@@ -1392,13 +1392,13 @@ print(PNT_SRT %>%
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.1.7 vs S1")) +
       stat_cor(method = "spearman", size = 4))
-ggsave("MSimages/B.1.1.7 vs S1 all markers.png", width = 20, height = 10, units = "cm")
+ggsave("MSimages/B.1.1.7 vs S1.png", width = 20, height = 10, units = "cm")
 
 # B.1.1.7 vs S2
 print(PNT_SRT %>%
     filter(Marker1 == "CD4") %>%
     filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-    filter(Marker2 == "CD137+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ TNF-a") %>% 
+    filter(Marker2 == "CD137+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ TNF-a+" | Marker2 == "CD137+ IL-21+") %>% 
     filter(exclude_B.1.1.7 == 0) %>% 
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S2)) +
@@ -1416,7 +1416,7 @@ print(PNT_SRT %>%
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.1.7 vs S2")) +
       stat_cor(method = "spearman", size = 4))
-ggsave("MSimages/B.1.1.7 vs S2 all markers.png", width = 20, height = 10, units = "cm")
+ggsave("MSimages/B.1.1.7 vs S2.png", width = 20, height = 10, units = "cm")
 
 # B.1.617.2 vs S1
 print(PNT_SRT %>%
@@ -1441,7 +1441,7 @@ print(PNT_SRT %>%
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.617.2 vs S1")) +
       stat_cor(method = "spearman", size = 4))
-ggsave(paste0("MSimages/B.1.617.2 vs S1 all markers.png"), width = 10, height = 10, units = "cm")
+ggsave(paste0("MSimages/B.1.617.2 vs S1.png"), width = 20, height = 10, units = "cm")
 
 # B.1.617.2 vs S2
 print(PNT_SRT %>%
@@ -1466,7 +1466,7 @@ print(PNT_SRT %>%
       theme(strip.background =element_rect(fill="aliceblue")) +
       ggtitle(paste("B.1.617.2 vs S2")) +
       stat_cor(method = "spearman", size = 4))
-ggsave(paste0("MSimages/B.1.617.2 vs S2 all markers.png"), width = 10, height = 10, units = "cm")
+ggsave(paste0("MSimages/B.1.617.2 vs S2.png"), width = 10, height = 10, units = "cm")
 
 ```
 
