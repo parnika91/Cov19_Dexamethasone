@@ -10,3 +10,9 @@
 *.tsv
 
 MSimages/
+
+MSimages_trial/
+
+trials.Rmd
+
+trials_files/figure-html/
