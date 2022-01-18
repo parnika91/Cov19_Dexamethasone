@@ -708,7 +708,10 @@ for(i in SRT)
                     colour = factor(Dexa))) +
         theme(axis.text.x = element_text(angle = 90)) +
         geom_jitter(width = 0.1, alpha = 0.5) +
-        scale_y_log10() +
+        #scale_y_log10() +
+        #coord_trans(y = "log10") +
+        scale_y_continuous(trans = "log10", limits = c(NA, 20))+
+        #coord_cartesian(ylim = c(NA, 20)) +
         labs(col = "Dexa") + 
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
@@ -719,8 +722,8 @@ for(i in SRT)
         facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
                                                "CD40L+ TNF-a+","CD40L+ IL-21+")),
                    scales = "free", ncol = 3) +
-        geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                    se = F, size = 0.4) +
+        geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.1, 
+                    se = T, size = 0.4) +
         xlab("Time point") +
         ggtitle(paste0(i, " progression in CD4 cells")) +
         theme_bw() +
@@ -746,7 +749,7 @@ for(i in SRT)
                   colour = factor(Dexa))) +
       geom_point(alpha = 0.5) +
       labs(col = "Dexa") +
-      scale_y_log10() +
+      coord_trans(y = scales::exp_trans(10)) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
@@ -754,7 +757,7 @@ for(i in SRT)
                  scales = "free", ncol = 3) +
       theme(strip.background =element_rect(fill="aliceblue")) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) +
+                  se = T, size = 0.4) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " progression in CD4 cells")) +
       theme(axis.text.x = element_text(angle = 90)) +
@@ -784,7 +787,7 @@ for(i in SRT)
                   group = factor(PatID_Studie1))) +
       geom_point(position = position_dodge(0.4), alpha = 0.5) +
       #geom_jitter(width = 0.1, alpha = 0.2) +
-      scale_y_log10() +
+      coord_trans(y = scales::exp_trans(10))+
       labs(col = "Dexa") + 
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
@@ -793,7 +796,7 @@ for(i in SRT)
       scale_fill_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) + 
+                  se = T, size = 0.4) + 
       geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
                 alpha = 0.5, size = 0.2)+
       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
@@ -823,7 +826,7 @@ for(i in SRT)
       theme(axis.text.x = element_text(angle = 90)) +
       geom_point(position = position_dodge(0.4), alpha = 0.5) +
       #geom_jitter(width = 0.1, alpha = 0.2) +
-      scale_y_log10() +
+      coord_trans(y = scales::exp_trans(10)) +
       labs(col = "Dexa") + 
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
@@ -832,7 +835,7 @@ for(i in SRT)
       scale_fill_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.5) +
+                  se = T, size = 0.5) +
        geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
                 alpha = 0.5, size = 0.2)+
       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
@@ -867,7 +870,7 @@ print(
                   colour = factor(Dexa))) +
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -884,7 +887,7 @@ print(
                  #ncol = 3,
                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) +
+                  se = T, size = 0.4) +
       xlab("Time point") +
       ggtitle(paste0(i, " neutralisation progression")) +
       theme_bw() +
@@ -906,7 +909,8 @@ print(
                   colour = factor(Dexa))) +
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
-      scale_y_log10() +
+       scale_y_log10() +
+      coord_trans(y = "log10") +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -923,7 +927,7 @@ print(
                  #ncol = 3,
                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) +
+                  se = T, size = 0.4) +
       xlab("Time point") +
       ggtitle(paste0(i, " neutralisation progression")) +
       theme_bw() +
@@ -941,6 +945,7 @@ print(
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
       scale_y_log10() +
+      coord_trans(y = "log10") +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -958,7 +963,7 @@ print(
       #            scales = "free",
       #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) +
+                  se = T, size = 0.4) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " neutralisation progression")) +
       theme_bw() +
@@ -976,6 +981,7 @@ print(
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
       scale_y_log10() +
+      coord_trans(y = "log10") +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -993,7 +999,7 @@ print(
       #            scales = "free",
       #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
       geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.4) +
+                  se = T, size = 0.4) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " neutralisation progression")) +
       theme_bw() +
@@ -1017,7 +1023,8 @@ print(
         theme(axis.text.x = element_text(angle = 90)) +
         #geom_jitter(width = 0.1, alpha = 0.2) +
         geom_point(position = position_dodge(0.4), alpha = 0.5) +
-        scale_y_log10() +
+      scale_y_log10() +
+        coord_trans(y = "log10") +
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
         scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1035,7 +1042,7 @@ print(
                  scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
         geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.7) +
+                  se = T, size = 0.7) +
         geom_line(position = position_dodge(0.4), 
                   aes(group = factor(PatID_Studie1)), alpha = 0.8, 
                   size = 0.2) +
@@ -1061,7 +1068,8 @@ print(
         theme(axis.text.x = element_text(angle = 90)) +
         #geom_jitter(width = 0.1, alpha = 0.2) +
         geom_point(position = position_dodge(0.4), alpha = 0.5) +
-        scale_y_log10() +
+      scale_y_log10() +
+        coord_trans(y = "log10") +
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
         scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1079,7 +1087,7 @@ print(
                  scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
         geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.7) +
+                  se = T, size = 0.7) +
         geom_line(position = position_dodge(0.4), 
                   aes(group = factor(PatID_Studie1)), alpha = 0.8, 
                   size = 0.2) +
@@ -1104,7 +1112,7 @@ sero %>%
     theme(axis.text.x = element_text(angle = 90)) +
     geom_jitter(width = 0.1, alpha = 0.5) +
     labs(col = "Dexa") +
-    scale_y_log10() +
+    coord_trans(y = "log10") +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1118,7 +1126,7 @@ sero %>%
     #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
     #            scales = "free") +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                se = F, size = 0.4) +
+                se = T, size = 0.4) +
     xlab("Time point") +
     ggtitle("IgG progression") +
     theme_bw() +
@@ -1135,6 +1143,7 @@ sero %>%
     geom_jitter(width = 0.1, alpha = 0.5) +
     labs(col = "Dexa") +
     scale_y_log10() +
+    coord_trans(y = scales::exp_trans(10)) +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1148,7 +1157,7 @@ sero %>%
     #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
     #            scales = "free") +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                se = F, size = 0.4) +
+                se = T, size = 0.4) +
     xlab("Days PSO") +
     ggtitle("IgG progression") +
     theme_bw() +
@@ -1168,7 +1177,7 @@ sero %>%
     #geom_jitter(width = 0.1, alpha = 0.2) +
     geom_point(position = position_dodge(0.4), alpha = 0.5) +
     labs(col = "Dexa") +
-    scale_y_log10() +
+    coord_trans(y = "log10") +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1186,7 +1195,7 @@ sero %>%
                scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.7) +
+                  se = T, size = 0.7) +
     geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), alpha = 0.5, 
               size = 0.2) +
     xlab("Time point") +
@@ -1208,6 +1217,7 @@ sero %>%
     geom_point(alpha = 0.5) +
     labs(col = "Dexa") +
     scale_y_log10() +
+    coord_trans(y = scales::exp_trans(10)) +
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -1225,7 +1235,7 @@ sero %>%
                scales = "free",
                  labeller = labeller(Dexa = as_labeller(dexa.labels))) +
     geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = F, size = 0.7) +
+                  se = T, size = 0.7) +
     geom_line(#position = position_dodge(0.4), 
               aes(group = factor(PatID_Studie1)), alpha = 0.5, 
               size = 0.2) +
@@ -1252,7 +1262,7 @@ Sero_PNT %>%
   ggplot(aes(x = B.1.1.7, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
   labs(col = "Dexa") +
-  scale_y_log10() +
+  coord_trans(y = "log10") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
   facet_wrap(~factor(Timepoint, levels = c('M3', 'M5+')), 
@@ -1263,7 +1273,7 @@ Sero_PNT %>%
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("B.1.1.7") + ylab("IgG BAU/ml") +
   stat_cor(method = "spearman", size = 3) +
-  geom_smooth(method = "lm", se = F)
+  geom_smooth(method = "lm", se = T)
 ggsave(paste0("MSimages/IgG vs B.1.1.7.png"), width = 20, height = 10, units = "cm")
 
 
@@ -1272,7 +1282,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.1.7, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
-  scale_y_log10() +
+  coord_trans(y = "log10") +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                       values = c("orangered", "blue", "green3")) +
@@ -1284,7 +1294,7 @@ Sero_PNT %>%
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("B.1.1.7") + ylab("IgG BAU/ml") +
   stat_cor(method = "spearman", size = 3) +
-  geom_smooth(method = "lm", se = F)
+  geom_smooth(method = "lm", se = T)
 ggsave(paste0("MSimages/IgG vs B.1.1.7 slopeByDexa.png"), width = 20, height = 10, units = "cm")
 
 
@@ -1295,7 +1305,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.617.2, y = IgG)) +
   geom_point(alpha = 0.7, aes(colour = factor(Dexa))) +
-  scale_y_log10() +
+  coord_trans(y = "log10") +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1307,7 +1317,7 @@ Sero_PNT %>%
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("B.1.617.2") + ylab("IgG BAU/ml") +
   stat_cor(method = "spearman", size = 3) +
-  geom_smooth(method = "lm", se = F)
+  geom_smooth(method = "lm", se = T)
 ggsave(paste0("MSimages/IgG vs B.1.617.2.png"), width = 20, height = 10, units = "cm")
 
 
@@ -1316,7 +1326,7 @@ Sero_PNT %>%
   filter(!(Timepoint == "W2" | Timepoint == "W4"))%>% 
   ggplot(aes(x = B.1.617.2, y = IgG, colour = factor(Dexa))) +
   geom_point(alpha = 0.7) +
-  scale_y_log10() +
+  coord_trans(y = "log10") +
   labs(col = "Dexa") +
   scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1328,7 +1338,7 @@ Sero_PNT %>%
   ggtitle("IgG vs PNT measures at the same time point") +
   xlab("B.1.617.2") + ylab("IgG BAU/ml") +
   stat_cor(method = "spearman", size = 3) +
-  geom_smooth(method = "lm", se = F)
+  geom_smooth(method = "lm", se = T)
 ggsave(paste0("MSimages/IgG vs B.1.617.2 slopeByDexa.png"), width = 20, height = 10, units = "cm")
 
 ```
@@ -1347,7 +1357,7 @@ for(i in SRT)
       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
       ggplot(aes(x = IgG, y = !!sym(i))) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1360,7 +1370,7 @@ for(i in SRT)
       ggtitle("IgG vs SRT (CD4)") +
       xlab("IgG BAU/ml") +
       stat_cor(method = "spearman", size = 3.5) +
-      geom_smooth(method = "lm", se = F))
+      geom_smooth(method = "lm", se = T))
   ggsave(paste0("MSimages/IgG vs ", i, ".png"), width = 20, height = 10, units = "cm")
 }
 ```
@@ -1374,12 +1384,12 @@ PNT_SRT <- PNT %>%
 print(PNT_SRT %>%
     filter(Marker1 == "CD4") %>%
     filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-    #ilter(Marker2 == "CD40L+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ IL-21+") %>% 
+    filter(Marker2 == "CD40L+ IFN-g+" | Marker2 == "CD40L+ IL-21+" | Marker2 == "CD137+ IL-21+") %>% 
     filter(exclude_B.1.1.7 == 0) %>% 
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S1)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1403,7 +1413,7 @@ print(PNT_SRT %>%
     as.data.frame() %>%
     ggplot(., aes(x = B.1.1.7, y = S2)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1428,7 +1438,7 @@ print(PNT_SRT %>%
     ggplot(., aes(x = B.1.617.2, y = S1)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
       
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1453,7 +1463,7 @@ print(PNT_SRT %>%
     ggplot(., aes(x = B.1.617.2, y = S2)) +
       geom_point(alpha = 0.7, aes(color = factor(Dexa))) +
       
-      scale_y_log10() +
+      coord_trans(y = "log10") +
       labs(col = "Dexa") +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
@@ -1692,7 +1702,7 @@ print(
         #theme(axis.text.x = element_text(angle = 90)) +
         #geom_jitter(width = 0.1, alpha = 0.2) +
         geom_point(position = position_dodge(0.4), alpha = 0.5) +
-        scale_y_log10() +
+        coord_trans(y = "log10") +
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
         scale_color_manual(breaks = c("1", "0", "3"),
