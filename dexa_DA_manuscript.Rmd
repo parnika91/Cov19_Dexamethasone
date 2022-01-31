@@ -706,11 +706,10 @@ for(i in SRT)
                                           'M5+')), 
                     y = !!sym(i), 
                     colour = factor(Dexa))) +
-        theme(axis.text.x = element_text(angle = 90)) +
         geom_jitter(width = 0.1, alpha = 0.5) +
         #scale_y_log10() +
-        #coord_trans(y = "log10") +
-        scale_y_continuous(trans = "log10", limits = c(NA, 20))+
+        coord_trans(y = "log10", ylim = c(0.001, 5)) +
+        scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+
         #coord_cartesian(ylim = c(NA, 20)) +
         labs(col = "Dexa") + 
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
@@ -722,11 +721,12 @@ for(i in SRT)
         facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
                                                "CD40L+ TNF-a+","CD40L+ IL-21+")),
                    scales = "free", ncol = 3) +
-        geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.1, 
+        geom_smooth(method = "rlm", fullrange = T, aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
                     se = T, size = 0.4) +
         xlab("Time point") +
         ggtitle(paste0(i, " progression in CD4 cells")) +
         theme_bw() +
+        theme(axis.text = element_text(size = 6.5)) +
         theme(strip.background =element_rect(fill="aliceblue")))
   ggsave(paste0("MSimages/", i, " progressionCD4.png"), width = 20, height = 10, units = "cm")
 }
@@ -749,27 +749,25 @@ for(i in SRT)
                   colour = factor(Dexa))) +
       geom_point(alpha = 0.5) +
       labs(col = "Dexa") +
-      coord_trans(y = scales::exp_trans(10)) +
+      coord_trans(y = "log10", ylim = c(0.001, 5)) +
+      scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+
       scale_color_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
       facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
                                              "CD40L+ TNF-a+","CD40L+ IL-21+")),
                  scales = "free", ncol = 3) +
       theme(strip.background =element_rect(fill="aliceblue")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.4) +
+      geom_smooth(method = "rlm", fullrange = T, aes(group = factor(Dexa)), alpha = 0.1, 
+                  se = F, size = 0.4) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " progression in CD4 cells")) +
       theme(axis.text.x = element_text(angle = 90)) +
       theme_bw() +
+      theme(axis.text = element_text(size = 6.5)) +
       theme(strip.background =element_rect(fill="aliceblue")))
   ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO.png"), width = 20, height = 10, units = "cm")
 }
 
-## breakup dexa groups and join by patients and have the fitted line
-# trimepoints
-marker.labels <- c(`CD40L+ CD137+`="CD40L+ CD137+",`CD40L+ TNF-a+`="CD40L+ TNF-a+",`CD40L+ IL-21+`="CD40L+ IL-21+")
-dexa.labels <- c(`1` = "D+", `0` = "D-", `3` = "mild")
 
 for(i in SRT)
 {  
@@ -787,7 +785,8 @@ for(i in SRT)
                   group = factor(PatID_Studie1))) +
       geom_point(position = position_dodge(0.4), alpha = 0.5) +
       #geom_jitter(width = 0.1, alpha = 0.2) +
-      coord_trans(y = scales::exp_trans(10))+
+      coord_trans(y = "log10", ylim = c(0.001, 5)) +
+      scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+
       labs(col = "Dexa") + 
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
@@ -795,19 +794,20 @@ for(i in SRT)
                           values = c("orangered", "blue", "green3")) +
       scale_fill_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.4) + 
+      geom_smooth(method = "lm", aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
+                  se = F, size = 0.4) + 
       geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
                 alpha = 0.5, size = 0.2)+
       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
                                              "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
                  #ncol = 3,
-                 labeller = labeller(Marker2 = as_labeller(marker.labels),
-                                     Dexa = as_labeller(dexa.labels)),
+                 # labeller = labeller(Marker2 = as_labeller(marker.labels),
+                 #                     Dexa = as_labeller(dexa.labels)),
                  scales = "free") +
       xlab("Time point") +
       ggtitle(paste0(i, " progression in CD4 cells")) +
       theme_bw() +
+      theme(axis.text = element_text(size = 6.5)) +
       theme(strip.background =element_rect(fill="aliceblue")))
   ggsave(paste0("MSimages/", i, " progressionCD4_byDexa.png"), width = 20, height = 15, units = "cm")
 }
@@ -826,7 +826,8 @@ for(i in SRT)
       theme(axis.text.x = element_text(angle = 90)) +
       geom_point(position = position_dodge(0.4), alpha = 0.5) +
       #geom_jitter(width = 0.1, alpha = 0.2) +
-      coord_trans(y = scales::exp_trans(10)) +
+      coord_trans(y = "log10", ylim = c(0.001, 5)) +
+      scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+
       labs(col = "Dexa") + 
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
@@ -834,19 +835,20 @@ for(i in SRT)
                           values = c("orangered", "blue", "green3")) +
       scale_fill_manual(breaks = c("D+", "D-", "mild"),
                           values = c("orangered", "blue", "green3")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.5) +
+      geom_smooth(method = "lm", aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
+                  se = F, size = 0.5) +
        geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
                 alpha = 0.5, size = 0.2)+
       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
                                              "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
                  #ncol = 3,
-                 labeller = labeller(Marker2 = as_labeller(marker.labels),
-                                     Dexa = as_labeller(dexa.labels)),
+                 # labeller = labeller(Marker2 = as_labeller(marker.labels),
+                 #                     Dexa = as_labeller(dexa.labels)),
                  scales = "free") +
       xlab("Days PSO") +
       ggtitle(paste0(i, " progression in CD4 cells")) +
       theme_bw() +
+      theme(axis.text = element_text(size = 6.5)) +
       theme(strip.background =element_rect(fill="aliceblue")))
   ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO_byDexa.png"), width = 20, height = 15, units = "cm")
 }
@@ -870,7 +872,7 @@ print(
                   colour = factor(Dexa))) +
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
-      coord_trans(y = "log10") +
+      coord_trans(y = "log10", ylim = c(5, 37000)) +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       scale_color_manual(breaks = c("D+", "D-", "mild"),
@@ -886,7 +888,7 @@ print(
       # facet_grid(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  #ncol = 3,
                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
+      geom_smooth(method = "lm", aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
                   se = T, size = 0.4) +
       xlab("Time point") +
       ggtitle(paste0(i, " neutralisation progression")) +
