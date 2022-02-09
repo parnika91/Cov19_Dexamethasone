@@ -888,7 +888,7 @@ print(
       # facet_grid(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  #ncol = 3,
                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
+      geom_smooth(method = "rlm", fullrange = T, aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.1, 
                   se = T, size = 0.4) +
       xlab("Time point") +
       ggtitle(paste0(i, " neutralisation progression")) +
@@ -964,7 +964,7 @@ print(
       #            #ncol = 3,
       #            scales = "free",
       #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
+      geom_smooth(method = "lm", aes(group = factor(Dexa), fill = factor(Dexa)), alpha = 0.2, 
                   se = T, size = 0.4) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " neutralisation progression")) +
