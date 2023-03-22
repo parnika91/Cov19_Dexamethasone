@@ -1,21 +1,23 @@
 ---
 title: "SARS-CoV-2 reactive T-cells in COVID-19 - Figure 5"
 output:
-  pdf_document:
-    toc: yes
   html_document:
     toc: yes
     theme: united
     code_folding: hide
+  pdf_document:
+    toc: yes
 ---
 
 ```{r, echo = F}
 knitr::opts_chunk$set(warning = F, message = F)
 knitr::opts_chunk$set(fig.pos = "!H", out.extra = "", fig.width = 9, fig.height = 6)
-knitr::opts_chunk$set(dpi=300,fig.width=7)
+#knitr::opts_chunk$set(dpi=150,fig.width=7)
 ```
 
 ```{r load_libraries, echo = F, message = F, warning = F}
+library(sjPlot)
+library(sjmisc)
 library(readxl)
 library(tidyverse)
 library(ggplot2)
@@ -28,10 +30,9 @@ library(ggthemes)
 library(lmerTest)
 library(glmm)
 library(ggstatsplot)
-library(patchwork)
-library(kableExtra)
-library(rmarkdown)
-library(sjPlot)
+#library(patchwork)
+#library(kableExtra)
+#library(rmarkdown)
 ```
 
 ## Load data tables
@@ -194,158 +195,204 @@ for(i in SRT)
       facs %>%
         #filter(Marker1 == "CD4") %>%
         filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-        filter(Marker == "CD4 CD40L+ CD137+" | Marker ==  "CD4 CD40L+ TNF-a+" | Marker == "CD4 CD40L+ IL-21+") %>% 
+        filter(Marker == "CD4 CD40L+ CD137+" )#| Marker ==  "CD4 CD40L+ TNF-a+" | Marker == "CD4 CD40L+ IL-21+") 
+      %>% 
         #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% 
       ggplot(., aes(x = factor(Timepoint, 
                                levels = c('W2', 'M1', 'M3', 
                                           'M6')), 
                     y = !!sym(i), 
-                    colour = factor(Dexa))) +
-        theme(axis.text.x = element_text(angle = 90)) +
-        geom_jitter(width = 0.1, alpha = 0.5) +
-        #scale_y_log10() +
-        #coord_trans(y = "log10") +
-        scale_y_continuous(trans = "log10", limits = c(NA, 20))+
+                    colour = Dexa)) +
+        #geom_jitter(width = 0.1, alpha = 0.5) +
+        geom_point(position = position_dodge(0.4), alpha = 0.7) +
+        scale_y_log10(minor = c(seq(0.001, 0.010, by = 0.001),
+                              seq(0.010, 0.100, by = 0.01),
+                              seq(0.100, 1.000, by = 0.1),
+                              seq(1.000, 10, by = 1))) +
+        # coord_trans(y = "log10", ylim = c(0.001, 5)) +
+        # scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4))+
         #coord_cartesian(ylim = c(NA, 20)) +
         labs(col = "Dexa") + 
         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+        # scale_color_manual(breaks = c("D+", "D-", "mild"),
+        #                   values = c("orangered", "blue", "green3")) +
+        # scale_fill_manual(breaks = c("D+", "D-", "mild"),
+        #                   values = c("orangered", "blue", "green3")) +
         scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
+                          values = c("orangered", "lightslateblue", "black")) +
         scale_fill_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-        facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
-                                               "CD40L+ TNF-a+","CD40L+ IL-21+")),
-                   scales = "free", ncol = 3) +
-        geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.1, 
+                          values = c("orangered", "lightslateblue", "black")) +
+        facet_wrap(~factor(Marker, levels = c("CD4 CD40L+ CD137+"#,
+                                               #"CD4 CD40L+ TNF-a+","CD4 CD40L+ IL-21+"
+                                              )),
+                   ncol = 3) +
+        geom_smooth(method = "rlm", fullrange = F, 
+                    aes(group = Dexa, fill = Dexa), 
+                    alpha = 0.1, 
                     se = T, size = 0.4) +
         # geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
         #         alpha = 0.3, size = 0.2)+
         #guides(fill = FALSE) +
         xlab("Time point") +
         ggtitle(paste0(i, " progression in CD4 cells")) +
-        theme_bw() +
-        theme(strip.background =element_rect(fill="aliceblue")))
-  ggsave(paste0("MSimages/", i, " progressionCD4.png"), width = 20, height = 10, units = "cm")
+        theme_classic() +
+      theme(axis.line = element_line(colour = "black"),
+      panel.grid.major = element_line(),
+      panel.grid.minor = element_line(colour = "gray99"),
+      panel.border = element_blank(),
+      panel.background = element_blank())+
+      theme(axis.text = element_text(size = 11)) +
+      theme(strip.background =element_rect(fill="whitesmoke", colour = "white"),
+            strip.text.x = element_text(size = 11)))
+  ggsave(paste0("MSimages/", i, " progressionCD4.png"), width = 10, height = 10, units = "cm", dpi = 300)
+  ggsave(paste0("MSimages/", i, " progressionCD4.pdf"), width = 10, height = 10, units = "cm", dpi = 300)
+  #ggsave(paste0("MSimages/SRTtimeseries.png"), width = 20, height = 10, units = "cm", dpi = 300)
 }
 
 
 ```
 
-for(i in SRT)
-{
-  print(
-    facs %>%
-      filter(Marker1 == "CD4") %>%
-      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-      filter(Marker2 == "CD40L+ CD137+" | Marker2 ==  "CD40L+ TNF-a+" | Marker2 == "CD40L+ IL-21+") %>% 
-      #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% 
-    ggplot(aes(x = TagPSO, y = !!sym(i), 
-                  colour = factor(Dexa))) +
-      geom_point(alpha = 0.5) +
-      labs(col = "Dexa") +
-      coord_trans(y = scales::exp_trans(10)) +
-      scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-      facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+",
-                                             "CD40L+ TNF-a+","CD40L+ IL-21+")),
-                 scales = "free", ncol = 3) +
-      theme(strip.background =element_rect(fill="aliceblue")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.4) +
-      xlab("Days PSO") +
-      ggtitle(paste0(i, " progression in CD4 cells")) +
-      theme(axis.text.x = element_text(angle = 90)) +
-      theme_bw() +
-      theme(strip.background =element_rect(fill="aliceblue")))
-  ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO.png"), width = 20, height = 10, units = "cm")
-}
+<!-- ```{r} -->
+<!-- ## SRT TagPSO -->
+<!-- ## CD4 -->
 
-## breakup dexa groups and join by patients and have the fitted line
-# trimepoints
-marker.labels <- c(`CD40L+ CD137+`="CD40L+ CD137+",`CD40L+ TNF-a+`="CD40L+ TNF-a+",`CD40L+ IL-21+`="CD40L+ IL-21+")
-dexa.labels <- c(`1` = "D+", `0` = "D-", `3` = "mild")
+<!-- # for(i in SRT) -->
+<!-- # { -->
+<!-- #   print( -->
+<!-- #     facs %>% -->
+<!-- #       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% -->
+<!-- #       filter(Marker == "CD4 CD40L+ CD137+" | Marker ==  "CD4 CD40L+ TNF-a+" | Marker == "CD4 CD40L+ IL-21+") %>% -->
+<!-- #       #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% -->
+<!-- #     ggplot(aes(x = TagPSO, y = !!sym(i), -->
+<!-- #                   colour = Dexa)) + -->
+<!-- #       geom_point(position = position_dodge(0.4), alpha = 0.5) + -->
+<!-- #       geom_smooth(method = "rlm", -->
+<!-- #                   fullrange = F, -->
+<!-- #                   geom = "ribbon", -->
+<!-- #                   aes(group = Dexa, fill = Dexa), -->
+<!-- #                   alpha = 0.1, -->
+<!-- #                   se = T, size = 0.4) + -->
+<!-- #       labs(col = "Dexa") + -->
+<!-- #       scale_y_log10(minor = c(seq(0.001, 0.010, by = 0.001), -->
+<!-- #                               seq(0.010, 0.100, by = 0.01), -->
+<!-- #                               seq(0.100, 1.000, by = 0.1), -->
+<!-- #                               seq(1.000, 10, by = 1))) + -->
+<!-- #       # coord_trans(y = "log10", ylim = c(0.001, 5)) + -->
+<!-- #       # scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4))+ -->
+<!-- #       scale_color_manual(breaks = c("D+", "D-", "mild"), -->
+<!-- #                           values = c("orangered", "blue", "green3")) + -->
+<!-- #       scale_fill_manual(breaks = c("D+", "D-", "mild"), -->
+<!-- #                           values = c("orangered", "blue", "green3")) + -->
+<!-- #       facet_wrap(~factor(Marker, levels = c("CD4 CD40L+ CD137+", -->
+<!-- #                                              "CD4 CD40L+ TNF-a+","CD4 CD40L+ IL-21+")), -->
+<!-- #                  ncol = 3) + -->
+<!-- #       # geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), -->
+<!-- #       #           alpha = 0.5, size = 0.2)+ -->
+<!-- #       xlab("Days PSO") + -->
+<!-- #       #guides(fill = FALSE) + -->
+<!-- #       ggtitle(paste0(i, " progression in CD4 cells")) + -->
+<!-- #       #theme(axis.text.x = element_text(angle = 90)) + -->
+<!-- #       theme_classic() + -->
+<!-- #       theme(axis.line = element_line(colour = "black"), -->
+<!-- #       panel.grid.major = element_line(), -->
+<!-- #       panel.grid.minor = element_line(colour = "gray99"), -->
+<!-- #       panel.border = element_blank(), -->
+<!-- #       panel.background = element_blank())+ -->
+<!-- #       theme(axis.text = element_text(size = 11)) + -->
+<!-- #       theme(strip.background =element_rect(fill="whitesmoke", colour = "white"), -->
+<!-- #             strip.text.x = element_text(size = 11))) -->
+<!-- #   ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO.png"), width = 20, height = 10, units = "cm", dpi= 300) -->
+<!-- # } -->
+<!-- ``` -->
 
-for(i in SRT)
-{  
-  print(
-    facs %>%
-      filter(Marker1 == "CD4") %>%
-      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-      filter(Marker2 == "CD40L+ CD137+" | Marker2 ==  "CD40L+ TNF-a+" | Marker2 == "CD40L+ IL-21+") %>% 
-      #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% 
-    ggplot(., aes(x = factor(Timepoint, 
-                             levels = c('W2', 'W4', 'M3', 
-                                        'M5+')), 
-                  y = !!sym(i), 
-                  colour = factor(Dexa),
-                  group = factor(PatID_Studie1))) +
-      geom_point(position = position_dodge(0.4), alpha = 0.5) +
-      #geom_jitter(width = 0.1, alpha = 0.2) +
-      coord_trans(y = scales::exp_trans(10))+
-      labs(col = "Dexa") + 
-      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
-      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
-      scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-      scale_fill_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.4) + 
-      geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
-                alpha = 0.5, size = 0.2)+
-      facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
-                                             "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
-                 #ncol = 3,
-                 labeller = labeller(Marker2 = as_labeller(marker.labels),
-                                     Dexa = as_labeller(dexa.labels)),
-                 scales = "free") +
-      xlab("Time point") +
-      ggtitle(paste0(i, " progression in CD4 cells")) +
-      theme_bw() +
-      theme(strip.background =element_rect(fill="aliceblue")))
-  ggsave(paste0("MSimages/", i, " progressionCD4_byDexa.png"), width = 20, height = 15, units = "cm")
-}
+<!-- ```{r} -->
+<!-- for(i in SRT) -->
+<!-- {   -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Marker1 == "CD4") %>% -->
+<!--       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%  -->
+<!--       filter(Marker2 == "CD40L+ CD137+" | Marker2 ==  "CD40L+ TNF-a+" | Marker2 == "CD40L+ IL-21+") %>%  -->
+<!--       #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>%  -->
+<!--     ggplot(., aes(x = factor(Timepoint,  -->
+<!--                              levels = c('W2', 'M1', 'M3',  -->
+<!--                                         'M6+')),  -->
+<!--                   y = !!sym(i),  -->
+<!--                   colour = Dexa, -->
+<!--                   group = factor(PatID_Studie1))) + -->
+<!--       geom_point(position = position_dodge(0.4), alpha = 0.5) + -->
+<!--       #geom_jitter(width = 0.1, alpha = 0.2) + -->
+<!--       coord_trans(y = "log10", ylim = c(0.001, 5)) + -->
+<!--       scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+ -->
+<!--       labs(col = "Dexa") +  -->
+<!--       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5,  -->
+<!--       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) + -->
+<!--       scale_color_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--       scale_fill_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--       geom_smooth(method = "lm", aes(group = Dexa, fill = Dexa), alpha = 0.1,  -->
+<!--                   se = F, size = 0.4) +  -->
+<!--       geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)),  -->
+<!--                 alpha = 0.5, size = 0.2)+ -->
+<!--       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+", -->
+<!--                                              "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')), -->
+<!--                  #ncol = 3, -->
+<!--                  # labeller = labeller(Marker2 = as_labeller(marker.labels), -->
+<!--                  #                     Dexa = as_labeller(dexa.labels)), -->
+<!--                  scales = "free") + -->
+<!--       xlab("Time point") + -->
+<!--       ggtitle(paste0(i, " progression in CD4 cells")) + -->
+<!--       theme_bw() + -->
+<!--       theme(axis.text = element_text(size = 6.5)) + -->
+<!--       theme(strip.background =element_rect(fill="aliceblue"))) -->
+<!--   ggsave(paste0("MSimages/", i, " progressionCD4_byDexa.png"), width = 20, height = 15, units = "cm", dpi = 300) -->
+<!-- } -->
+<!-- ``` -->
 
-for(i in SRT)
-{  
-  print(
-    facs %>%
-      filter(Marker1 == "CD4") %>%
-      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
-      filter(Marker2 == "CD40L+ CD137+" | Marker2 ==  "CD40L+ TNF-a+" | Marker2 == "CD40L+ IL-21+") %>% 
-      #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>% 
-    ggplot(., aes(x = TagPSO,y = !!sym(i), 
-                  colour = factor(Dexa),
-                  group = factor(PatID_Studie1))) +
-      theme(axis.text.x = element_text(angle = 90)) +
-      geom_point(position = position_dodge(0.4), alpha = 0.5) +
-      #geom_jitter(width = 0.1, alpha = 0.2) +
-      coord_trans(y = scales::exp_trans(10)) +
-      labs(col = "Dexa") + 
-      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
-      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
-      scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-      scale_fill_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.5) +
-       geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)), 
-                alpha = 0.5, size = 0.2)+
-      facet_grid(factor(Marker2, levels = c("CD40L+ CD137+",
-                                             "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
-                 #ncol = 3,
-                 labeller = labeller(Marker2 = as_labeller(marker.labels),
-                                     Dexa = as_labeller(dexa.labels)),
-                 scales = "free") +
-      xlab("Days PSO") +
-      ggtitle(paste0(i, " progression in CD4 cells")) +
-      theme_bw() +
-      theme(strip.background =element_rect(fill="aliceblue")))
-  ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO_byDexa.png"), width = 20, height = 15, units = "cm")
-}
-```
+<!-- ```{r} -->
+<!-- for(i in SRT) -->
+<!-- {   -->
+<!--   print( -->
+<!--     facs %>% -->
+<!--       filter(Marker1 == "CD4") %>% -->
+<!--       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%  -->
+<!--       filter(Marker2 == "CD40L+ CD137+" | Marker2 ==  "CD40L+ TNF-a+" | Marker2 == "CD40L+ IL-21+") %>%  -->
+<!--       #left_join(SRT_2_tp, ., by = "PatID_Studie1") %>%  -->
+<!--     ggplot(., aes(x = TagPSO,y = !!sym(i),  -->
+<!--                   colour = Dexa, -->
+<!--                   group = factor(PatID_Studie1))) + -->
+<!--       theme(axis.text.x = element_text(angle = 90)) + -->
+<!--       geom_point(position = position_dodge(0.4), alpha = 0.5) + -->
+<!--       #geom_jitter(width = 0.1, alpha = 0.2) + -->
+<!--       coord_trans(y = "log10", ylim = c(0.001, 5)) + -->
+<!--       scale_y_continuous(breaks = c(0.001, 0.01, 0.1, 1, 2, 3, 4, 5))+ -->
+<!--       labs(col = "Dexa") +  -->
+<!--       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5,  -->
+<!--       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) + -->
+<!--       scale_color_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--       scale_fill_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--       geom_smooth(method = "lm", aes(group = Dexa, fill = Dexa), alpha = 0.1,  -->
+<!--                   se = F, size = 0.5) + -->
+<!--        geom_line(position = position_dodge(0.4), aes(group = factor(PatID_Studie1)),  -->
+<!--                 alpha = 0.5, size = 0.2)+ -->
+<!--       facet_grid(factor(Marker2, levels = c("CD40L+ CD137+", -->
+<!--                                              "CD40L+ TNF-a+","CD40L+ IL-21+")) ~ factor(Dexa, levels = c('D+', 'D-', 'mild')), -->
+<!--                  #ncol = 3, -->
+<!--                  # labeller = labeller(Marker2 = as_labeller(marker.labels), -->
+<!--                  #                     Dexa = as_labeller(dexa.labels)), -->
+<!--                  scales = "free") + -->
+<!--       xlab("Days PSO") + -->
+<!--       ggtitle(paste0(i, " progression in CD4 cells")) + -->
+<!--       theme_bw() + -->
+<!--       theme(axis.text = element_text(size = 6.5)) + -->
+<!--       theme(strip.background =element_rect(fill="aliceblue"))) -->
+<!--   ggsave(paste0("MSimages/", i, " progressionCD4_DaysPSO_byDexa.png"), width = 20, height = 15, units = "cm", dpi = 300) -->
+<!-- } -->
+<!-- ``` -->
 
 ### PNT time series
 
@@ -368,14 +415,19 @@ print(
                   colour = Dexa)) +
       geom_jitter(width = 0.1, alpha = 0.5) +
       labs(col = "Dexa") +
-      coord_trans(y = "log10") +
+      scale_y_log10(minor=c(1:10,
+                        seq( 10, 100,by=10 ),
+                        seq(100,1000,by=100),
+                        seq(1000,10000,by=1000),
+                        seq(10000,100000,by=10000))) +
+      #coord_trans(y = "log10", ylim = c(5, 37000)) +
       #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
       #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
       #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
       scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
+                          values = c("orangered", "lightslateblue", "black")) +
       scale_fill_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
+                          values = c("orangered", "lightslateblue", "black")) +
       # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
       #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
       #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -385,7 +437,7 @@ print(
       # facet_grid(. ~ factor(Dexa, levels = c('1', '0', '3')),
                  #ncol = 3,
                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
                   se = T, size = 0.4) +
       xlab("Time point") +
       ggtitle(paste0(i, " neutralisation progression")) +
@@ -397,6 +449,7 @@ print(
     panel.background = element_blank())+
       theme(axis.text = element_text(size = 11)))
 ggsave(paste0("MSimages/", i, " neutralisation progression.png"), width = 20, height = 15, units = "cm", dpi = 300)
+ggsave(paste0("MSimages/", i, " neutralisation progression.pdf"), width = 20, height = 15, units = "cm", dpi = 300)
 
 B117_age_sex_tp_dexa_minus <- lmerTest::lmer(data = B117, log10(B.1.1.7) ~ Timepoint + relevel(as.factor(Dexa), ref = "D-") + Age + Sex + (1|PatID_Studie1))
 
@@ -457,6 +510,8 @@ print(
     panel.background = element_blank())+
       theme(axis.text = element_text(size = 11)))
 ggsave(paste0("MSimages/", i, " neutralisation progression.png"), width = 20, height = 15, units = "cm", dpi = 300)
+ggsave(paste0("MSimages/", i, " neutralisation progression.pdf"), width = 20, height = 15, units = "cm", dpi = 300)
+
 
 B16172_age_sex_tp_dexa_minus <- lmerTest::lmer(data = B16172, log10(B.1.617.2) ~ Timepoint + relevel(as.factor(Dexa), ref = "D-") + Age + Sex + (1|PatID_Studie1))
 
@@ -502,8 +557,8 @@ print(
       #            #ncol = 3,
       #            scales = "free",
       #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
-      geom_smooth(method = "lm", aes(group = factor(Dexa)), alpha = 0.7, 
-                  se = T, size = 0.4) +
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
+                  se = T, size = 0.4, fullrange = F) +
       xlab("Days PSO") +
       ggtitle(paste0(i, " neutralisation progression")) +
       theme_classic() +
@@ -721,9 +776,9 @@ sero %>%
     #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
     #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
     scale_color_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
+                          values = c("orangered", "lightslateblue", "black")) +
     scale_fill_manual(breaks = c("D+", "D-", "mild"),
-                          values = c("orangered", "blue", "green3")) +
+                          values = c("orangered", "lightslateblue", "black")) +
     # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
     #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
     #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
@@ -744,6 +799,8 @@ sero %>%
       theme(strip.background =element_rect(fill="whitesmoke", colour = "white"),
             strip.text.x = element_text(size = 11))
 ggsave(paste0("MSimages/IgG progression.png"), width = 20, height = 15, units = "cm", dpi = 300)
+ggsave(paste0("MSimages/IgG progression.pdf"), width = 20, height = 15, units = "cm", dpi = 300)
+
 
 IgG_age_sex_tp_dexa_minus <- lmerTest::lmer(data = sero_m, log10(IgG) ~ Timepoint + relevel(as.factor(Dexa), ref = "D-") + Age + Sex + (1|PatID_Studie1))
 
