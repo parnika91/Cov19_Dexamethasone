@@ -1,0 +1,654 @@
+---
+title: "Time series PNT"
+output:
+  html_document:
+    toc: yes
+    theme: united
+    code_folding: hide
+  pdf_document:
+    toc: yes
+---
+
+```{r, echo = F}
+knitr::opts_chunk$set(warning = F, message = F)
+knitr::opts_chunk$set(fig.pos = "!H", out.extra = "", fig.width = 9, fig.height = 6)
+knitr::opts_chunk$set(dpi=300,fig.width=7)
+```
+
+```{r load_libraries, echo = F, message = F, warning = F}
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(broom)
+library(stringr)
+library(MASS) # for rlm
+library(ggthemes)
+library(lmerTest)
+library(glmm)
+library(ggstatsplot)
+library(patchwork)
+library(kableExtra)
+library(rmarkdown)
+library(sjPlot)
+library(sjmisc)
+```
+
+# Load data tables
+```{r load_datasets}
+# delta alpha clinical table
+PNT <- read_excel("../2022_05_19_PNT_CT.xlsx") %>% 
+  dplyr::select(contains("Studie 1"),
+         contains("PatID"),
+         contains("exclude"),
+         contains("Tag PSO"),
+         contains("PSO/PI"),
+         contains("Zeitraum"),
+         contains("Serum"),
+         contains("Dexa")) %>%
+  rename(PatID_Studie1 = `PatID`,
+         Studie1 = `Studie 1`,
+         exclude_immuno = `# exclude (immunosuppression, other)`,
+         exclude_B.1.1.7 = `#exclude for B1.1.7`,
+         exclude_B.1.617.2 = `#exclude for B.1.617.2`,
+         TagPSO = `Tag PSO`,
+         Timepoint = `Zeitraum`,
+         B.1.1.7 = `Serum ID50: Variant B.1.1.7`, 
+         B.1.617.2 = `Serum ID50: Variant B.1.617.2`,
+         BA.2 = `Serum ID50: Variant BA.2`,
+         Dexa = `Dexamethason`) %>%
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  mutate(TagPSO = as.numeric(TagPSO)) %>%
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>%
+  dplyr::mutate(exclude_immuno = as.numeric(replace_na(exclude_immuno, 0))) %>% 
+  filter(exclude_immuno == 0) %>% 
+  dplyr::mutate(exclude_B.1.1.7 = as.numeric(replace_na(exclude_B.1.1.7, 0))) %>% 
+  #mutate(Timepoint = str_replace_all(Timepoint, c("5" = "6", "W4" = "M1"))) %>%
+  mutate(exclude_B.1.617.2 = as.numeric(replace_na(exclude_B.1.617.2, 0))) %>% 
+  mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
+
+# FACS results
+facs <- read_excel("../cleaned_FACS_mastertable 2022_04.xlsx") %>% 
+  rename(ID = `Studie und PatID`,
+         Timepoint = `Zeitraum`) %>% 
+  mutate(Studie1 = strsplit(ID, split = " ")[[1]][1]) %>% 
+  mutate(PatID_Studie1 = strsplit(ID, split = " ")[[1]][2]) %>% 
+  filter(!is.na(CEFX) | !is.na(S1) | !is.na(S2) | !is.na(SEB)) %>%
+  mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
+  #filter(!(ausschliessen == 1)) %>% 
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>% 
+  mutate(Timepoint = str_replace_all(Timepoint, c("W 2"="W2"))) %>% 
+  mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
+
+
+# meta data
+meta <- read_excel("../metadata 2022 05 24 CT.xlsx") %>%
+  dplyr::select(#contains("sanity"),
+         contains("Studie 1"),
+         contains("Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre"),
+         contains("Geschlecht bei der Geburt"),
+         contains("Dexamethason"),
+         contains("Immunosuppression"),
+         contains("Bemerkung"),
+         contains("Start Dexa"),
+         contains("Ende Dexa")) %>% 
+  rename(PatID_Studie1 = `PatID Studie 1`, 
+         Age = `Alter / Geschaetztes Alter bei Einschluss gr 3 Jahre`, 
+         Sex = `Geschlecht bei der Geburt` ,
+         Studie1 = `Studie 1`,
+         Dexa = Dexamethason) %>%
+  mutate(PatID_Studie1 = as.character(PatID_Studie1)) %>% 
+  filter(!grepl(.$Bemerkung, pattern = "Immun", ignore.case = T)) %>% 
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>%
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>% 
+  mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
+
+# serology
+sero <- read_excel("../2022_05_18_Serol_CT.xlsx") %>% 
+  dplyr::select(contains("Studie 1"),
+         contains("Entnahmedatum"),
+         contains("Tag PSO"),
+         contains("Bemerkung"),
+         contains("Zeitraum"),
+         contains("IgG"),
+         contains("Dexa"),
+         contains("ausschliessen (Immunsuppression, other)"),
+         "PatID") %>% 
+  rename(PatID_Studie1 = `PatID`,
+         Studie1 = `Studie 1`,
+         IgG = `IgG Value <7 set to 1`,
+         TagPSO = `Tag PSO`, 
+         Timepoint = Zeitraum, 
+         Dexa = `Dexamethason`,
+         ausschliessen_imm = `ausschliessen (Immunsuppression, other)`) %>% 
+  mutate(ausschliessen_imm = replace_na(ausschliessen_imm, 0)) %>%
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>% 
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  mutate(IgG = as.numeric(str_replace(IgG, c(","), "\\."))) %>% 
+  filter(!ausschliessen_imm == 1) %>% 
+  mutate(Studie1 = str_replace(Studie1, c("Pa-COVID-19"), "Pa-COVID")) %>% 
+  mutate(PatID_Studie1 = str_replace(PatID_Studie1, c("C19-CB-"), "")) %>%
+  mutate(PatID_Studie1 = as.character(as.numeric(PatID_Studie1))) %>% 
+  mutate(PatID_Studie1 = paste(tolower(paste(substr(Studie1, 1, 2))), 
+                               tolower(paste(substr(Studie1, (nchar(Studie1)-1), nchar(Studie1)), 
+                                             PatID_Studie1, 
+                                             sep = "")),
+                               sep = "")) %>% 
+  mutate(Timepoint = str_replace_all(Timepoint, c("5" = "6"))) %>%
+  mutate(Dexa = str_replace_all(Dexa, c("1" = "D+", "0" = "D-", "3" = "mild")))
+
+SRT <- c("S1", "S2")
+strain <- c("B.1.1.7", "B.1.617.2")
+level_order <- c('1', '0', '3')
+```
+
+```{r, results = 'asis'}
+meta_age_sex <- meta %>% 
+  dplyr::select(PatID_Studie1, Age, Sex)
+
+B117 <- PNT %>% 
+  filter(exclude_B.1.1.7 == 0 & Timepoint != "PI") %>% 
+  dplyr::select(PatID_Studie1, Dexa, B.1.1.7, Timepoint, TagPSO) %>% 
+  left_join(., meta_age_sex) %>% 
+  mutate(var_col = B.1.1.7)
+
+B16172 <- PNT %>% 
+  filter(exclude_B.1.617.2 == 0 & Timepoint != "PI") %>% 
+  dplyr::select(PatID_Studie1, Dexa, B.1.617.2, Timepoint, TagPSO) %>% 
+  left_join(., meta_age_sex) %>% 
+  mutate(var_col = B.1.617.2)
+
+my_models <- function(var)
+{
+  if(var=="B.1.1.7")
+    var_df <- B117
+  
+  if(var=="B.1.617.2")
+    var_df <- B16172
+  
+  print(var)
+  age_sex <- lmerTest::lmer(data = var_df, log10(var_col) ~ Age + Sex + (1|PatID_Studie1))
+  
+  print(kable(data.frame(coef(summary(age_sex)))))
+  
+  age_sex_tp_dexa <- lmerTest::lmer(data = var_df, log10(var_col) ~ Timepoint + Dexa + Age + Sex + (1|PatID_Studie1))
+  
+  kable(data.frame(coef(summary(age_sex_tp_dexa))))
+  
+  par(mfrow = c(2, 2))
+  print(plot(age_sex_tp_dexa))
+  print(plot(age_sex_tp_dexa, type=c("p","smooth"), col.line=1))
+  print(lattice::qqmath(age_sex_tp_dexa))
+  print(plot(age_sex_tp_dexa, rstudent(.) ~ hatvalues(.)))
+  
+  # print(p1)
+  # print(p2)
+  # print(p3)
+  # print(p4)
+  #p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+  
+  age_sex_tp_dexa_wo_log <- lmerTest::lmer(data = var_df, var_col ~ Timepoint + Dexa + Age + Sex + (1|PatID_Studie1))
+  
+  kable(data.frame(coef(summary(age_sex_tp_dexa_wo_log))))
+  
+  par(mfrow = c(2, 2))
+  plot(age_sex_tp_dexa_wo_log)
+  plot(age_sex_tp_dexa_wo_log, type=c("p","smooth"), col.line=1)
+  lattice::qqmath(age_sex_tp_dexa_wo_log)
+  plot(age_sex_tp_dexa_wo_log, rstudent(.) ~ hatvalues(.))
+  
+  # print(p1)
+  # print(p2)
+  # print(p3)
+  # print(p4)
+  #p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+  
+  l <- anova(age_sex_tp_dexa, age_sex)
+  
+  kable(data.frame(l))
+  
+  age_sex_tp_dexamild <- lmerTest::lmer(data = var_df, log10(var_col) ~ Timepoint + relevel(as.factor(Dexa), ref = "mild") + Age + Sex + (1|PatID_Studie1))
+  
+  kable(data.frame(coef(summary(age_sex_tp_dexamild))))
+  
+  age_sex_tagpso_dexa <- lmerTest::lmer(data = var_df, log10(var_col) ~ TagPSO + Dexa + Age + Sex + (1|PatID_Studie1))
+  
+  kable(data.frame(coef(summary(age_sex_tagpso_dexa))))
+  
+  print(anova(age_sex_tagpso_dexa, age_sex))
+  
+  age_sex_tagpso_dexamild <- lmerTest::lmer(data = var_df, log10(var_col) ~ TagPSO + relevel(as.factor(Dexa), ref = "mild") + Age + Sex + (1|PatID_Studie1))
+  
+  kable(data.frame(coef(summary(age_sex_tagpso_dexamild))))
+}
+```
+
+# PNT time series
+(No patients had more than one measurements for the same time point)
+## B.1.1.7
+```{r PNT time series}
+## PNT
+# B.1.1.7
+
+meta_age_sex <- meta %>% 
+  dplyr::select(PatID_Studie1, Age, Sex)
+
+B117 <- PNT %>% 
+  filter(exclude_B.1.1.7 == 0 & Timepoint != "PI") %>% 
+  dplyr::select(PatID_Studie1, Dexa, B.1.1.7, Timepoint, TagPSO) %>% 
+  left_join(., meta_age_sex) %>% 
+  mutate(var_col = B.1.1.7)
+
+B16172 <- PNT %>% 
+  filter(exclude_B.1.617.2 == 0 & Timepoint != "PI") %>% 
+  dplyr::select(PatID_Studie1, Dexa, B.1.617.2, Timepoint, TagPSO) %>% 
+  left_join(., meta_age_sex) %>% 
+  mutate(var_col = B.1.617.2)
+
+i = "B.1.1.7"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%
+      filter(exclude_B.1.1.7 == 0) %>% 
+      #mutate(exclude_col := "{exclude}_{{ i }}")
+      #filter("{exclude}_{{ i }}" == 0) %>% 
+      #left_join(PNT_2_tp, ., by = "PatID_Studie1") %>% 
+      ggplot(., aes(x = factor(Timepoint, 
+                             levels = c('M1', 'M3', 
+                                        'M6+')), 
+                  y = !!sym(i), 
+                  colour = Dexa)) +
+      geom_jitter(width = 0.1, alpha = 0.5) +
+      labs(col = "Dexa") +
+      scale_y_log10(minor=c(1:10,
+                        seq( 10, 100,by=10 ),
+                        seq(100,1000,by=100),
+                        seq(1000,10000,by=1000),
+                        seq(10000,100000,by=10000))) +
+      #coord_trans(y = "log10", ylim = c(5, 37000)) +
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+      scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      # facet_grid(. ~ factor(Dexa, levels = c('1', '0', '3')),
+                 #ncol = 3,
+                 #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
+                  se = T, size = 0.4) +
+      xlab("Time point") +
+      ggtitle(paste0(i, " neutralisation progression")) +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_line(),
+    panel.grid.minor = element_line(colour = "gray99"),
+    panel.border = element_blank(),
+    panel.background = element_blank())+
+      theme(axis.text = element_text(size = 11)))
+ggsave(paste0("MSimages/", i, " neutralisation progression.png"), width = 20, height = 15, units = "cm", dpi = 300)
+
+B117_age_sex_tp_dexa_minus <- lmerTest::lmer(data = B117, log10(B.1.1.7) ~ Timepoint + relevel(as.factor(Dexa), ref = "D-") + Age + Sex + (1|PatID_Studie1))
+
+tab_model(B117_age_sex_tp_dexa_minus)
+
+B117_age_sex_tp_dexa_mild <- lmerTest::lmer(data = B117, log10(B.1.1.7) ~ Timepoint + relevel(as.factor(Dexa), ref = "mild") + Age + Sex + (1|PatID_Studie1))
+
+tab_model(B117_age_sex_tp_dexa_mild)
+
+```
+
+```{r}
+i = "B.1.1.7"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>% 
+      filter(exclude_B.1.1.7 == 0) %>% 
+      #left_join(PNT_2_tp, ., by = "PatID_Studie1") %>% 
+      ggplot(., aes(x = TagPSO, y = !!sym(i), 
+                  colour = Dexa)) +
+      geom_jitter(width = 0.1, alpha = 0.5) +
+      labs(col = "Dexa") +
+      scale_y_log10(minor=c(1:10,
+                        seq( 10, 100,by=10 ),
+                        seq(100,1000,by=100),
+                        seq(1000,10000,by=1000),
+                        seq(10000,100000,by=10000))) +
+      #coord_trans(y = "log10", ylim = c(5, 37000)) +
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+      scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      # facet_wrap(. ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
+      #            #ncol = 3,
+      #            scales = "free",
+      #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
+                  se = T, size = 0.4, fullrange = F) +
+      xlab("Days PSO") +
+      ggtitle(paste0(i, " neutralisation progression")) +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_line(),
+    panel.grid.minor = element_line(colour = "gray99"),
+    panel.border = element_blank(),
+    panel.background = element_blank())+
+      theme(axis.text = element_text(size = 11)) +
+      theme(strip.background =element_rect(fill="whitesmoke", colour = "white"),
+            strip.text.x = element_text(size = 11)))
+ggsave(paste0("MSimages/", i, " neutralisation progression DaysPSO.png"), width = 20, height = 15, units = "cm", dpi = 300)
+
+#my_models(var = "B.1.1.7")
+
+# https://stats.stackexchange.com/questions/435644/is-there-a-method-to-look-for-significant-difference-between-two-linear-regressi
+# https://stackoverflow.com/questions/33192618/looking-for-differences-btw-linear-regression-lines-in-r
+```
+  
+# B.1.617.2
+```{r}
+i = "B.1.617.2"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%
+      filter(exclude_B.1.617.2 == 0) %>% 
+      #mutate(exclude_col := "{exclude}_{{ i }}")
+      #filter("{exclude}_{{ i }}" == 0) %>% 
+      #left_join(PNT_2_tp, ., by = "PatID_Studie1") %>% 
+      ggplot(., aes(x = factor(Timepoint, 
+                             levels = c('W2', 'M1', 'M3', 
+                                        'M6')), 
+                  y = !!sym(i), 
+                  colour = Dexa)) +
+      geom_jitter(width = 0.1, alpha = 0.5) +
+      labs(col = "Dexa") +
+      scale_y_log10(minor=c(1:10,
+                        seq( 10, 100,by=10 ),
+                        seq(100,1000,by=100),
+                        seq(1000,10000,by=1000),
+                        seq(10000,100000,by=10000))) +
+      #coord_trans(y = "log10", ylim = c(5, 37000)) +
+      #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+      
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      # facet_grid(. ~ factor(Dexa, levels = c('1', '0', '3')),
+                 #ncol = 3,
+                 #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
+                  se = T, size = 0.4) +
+      xlab("Time point") +
+      ggtitle(paste0(i, " neutralisation progression")) +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_line(),
+    panel.grid.minor = element_line(colour = "gray99"),
+    panel.border = element_blank(),
+    panel.background = element_blank())+
+      theme(axis.text = element_text(size = 11)) +
+      theme(strip.background =element_rect(fill="whitesmoke", colour = "white"),
+            strip.text.x = element_text(size = 11)))
+ggsave(paste0("MSimages/", i, " neutralisation progression.png"), width = 20, height = 15, units = "cm", dpi = 300)
+
+```
+
+```{r}  
+i = "B.1.617.2"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%
+      filter(exclude_B.1.617.2 == 0) %>% 
+      #left_join(PNT_2_tp, ., by = "PatID_Studie1") %>% 
+      ggplot(., aes(x = TagPSO, y = !!sym(i), 
+                  colour = Dexa)) +
+      geom_jitter(width = 0.1, alpha = 0.5) +
+      labs(col = "Dexa") +
+      scale_y_log10(minor=c(1:10,
+                        seq( 10, 100,by=10 ),
+                        seq(100,1000,by=100),
+                        seq(1000,10000,by=1000),
+                        seq(10000,100000,by=10000))) +
+      #coord_trans(y = "log10", ylim = c(5, 37000)) +
+      #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5, 
+      #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+      #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+      scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+      # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+      #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+      #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+      #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+      #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+      #            scales = "free") +
+      # facet_wrap(. ~ factor(Dexa, levels = c('D+', 'D-', 'mild')),
+      #            #ncol = 3,
+      #            scales = "free",
+      #            labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+      geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1, 
+                  se = T, size = 0.4, fullrange = F) +
+      xlab("Days PSO") +
+      ggtitle(paste0(i, " neutralisation progression")) +
+      theme_classic() +
+      theme(axis.line = element_line(colour = "black"),
+    panel.grid.major = element_line(),
+    panel.grid.minor = element_line(colour = "gray99"),
+    panel.border = element_blank(),
+    panel.background = element_blank())+
+      theme(axis.text = element_text(size = 11)) +
+      theme(strip.background =element_rect(fill="whitesmoke", colour = "white"),
+            strip.text.x = element_text(size = 11)))
+ggsave(paste0("MSimages/", i, " neutralisation progression DaysPSO.png"), width = 20, height = 15, units = "cm", dpi  = 300)
+
+#my_models(var = "B.1.617.2")
+
+```
+
+```{r}
+## PNT separated by dexa and joined by patients
+
+i = "B.1.1.7"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%
+      filter(exclude_B.1.1.7 == 0) %>%
+      ggplot(aes(x = factor(Timepoint,
+                            levels = c('W2', 'M1', 'M3',
+                                          'M6')),
+                 y = !!sym(i),
+                 colour = Dexa,
+                 group = factor(PatID_Studie1))) +
+        labs(col = "Dexa") +
+        theme(axis.text.x = element_text(angle = 90)) +
+        #geom_jitter(width = 0.1, alpha = 0.5) +
+        geom_point(position = position_dodge(0.1), alpha = 0.5) +
+        scale_y_log10(minor=c(5, 50, 500, 5000, 50000)) +
+      # minor=c(1:10,
+      #                   seq( 10, 100,by=10 ),
+      #                   seq(100,1000,by=100),
+      #                   seq(1000,10000,by=1000),
+      #                   seq(10000,100000,by=10000))
+        #coord_trans(y = "log10") +
+        #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+
+        #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5,
+        #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+        scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+        scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+        # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+        #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+        #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+        #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+        #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+        #            scales = "free") +
+        # facet_wrap(. ~ factor(Timepoint, levels = c('D+', 'D-', 'mild')),
+        #          ncol = 3,
+        #          scales = "free")+
+                 #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+        geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1,
+                  se = T, size = 0.7) +
+        geom_line(position = position_dodge(0.1),
+                  aes(group = factor(PatID_Studie1)), alpha = 0.5,
+                  size = 0.2) +
+        xlab("Time point") +
+        ggtitle(paste0(i, " neutralisation progression")) +
+        theme_bw() +
+        #theme(legend.position = "none") +
+        theme(strip.background =element_rect(fill="aliceblue")))
+ggsave(paste0("MSimages/", i, " neutralisation progression DaysPSO byPatient.png"), width = 20, height = 10, units = "cm", dpi = 300)
+```
+
+
+
+```{r}
+## PNT separated by dexa and joined by patients
+
+i = "B.1.617.2"
+print(
+    PNT %>%
+      filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%
+      filter(exclude_B.1.617.2 == 0) %>%
+      ggplot(aes(x = factor(Timepoint,
+                            levels = c('W2', 'M1', 'M3',
+                                          'M6')),
+                 y = !!sym(i),
+                 colour = Dexa,
+                 group = factor(PatID_Studie1))) +
+        labs(col = "Dexa") +
+        theme(axis.text.x = element_text(angle = 90)) +
+        #geom_jitter(width = 0.1, alpha = 0.5) +
+        geom_point(position = position_dodge(0.1), alpha = 0.5) +
+        scale_y_log10(minor=c(5, 50, 500, 5000, 50000)) +
+      # minor=c(1:10,
+      #                   seq( 10, 100,by=10 ),
+      #                   seq(100,1000,by=100),
+      #                   seq(1000,10000,by=1000),
+      #                   seq(10000,100000,by=10000))
+        #coord_trans(y = "log10") +
+        #scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+
+
+        #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5,
+        #             colour = "gray47", alpha = 0.5, outlier.shape = NA) +
+        scale_color_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+        scale_fill_manual(breaks = c("D+", "D-", "mild"),
+                          values = c("orangered", "blue", "green3")) +
+        # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+",
+        #                                        "CD40L+ IFN-g+","CD40L+ IL-21+",
+        #                                        "CD40L+ TNF-a+","CD137+ GrzB+",
+        #                                        "CD137+ IFN-g+","CD137+ IL-21+",
+        #                                        "CD137+ TNF-a+","CD137+ GrzB-")),
+        #            scales = "free") +
+        # facet_wrap(. ~ factor(Timepoint, levels = c('D+', 'D-', 'mild')),
+        #          ncol = 3,
+        #          scales = "free")+
+                 #labeller = labeller(Dexa = as_labeller(dexa.labels))) +
+        geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1,
+                  se = T, size = 0.7) +
+        geom_line(position = position_dodge(0.1),
+                  aes(group = factor(PatID_Studie1)), alpha = 0.5,
+                  size = 0.2) +
+        xlab("Time point") +
+        ggtitle(paste0(i, " neutralisation progression")) +
+        theme_bw() +
+        #theme(legend.position = "none") +
+        theme(strip.background =element_rect(fill="aliceblue")))
+ggsave(paste0("MSimages/", i, " neutralisation progression DaysPSO byPatient.png"), width = 20, height = 10, units = "cm", dpi = 300)
+```
+
+<!-- ```{r} -->
+<!-- i = "B.1.617.2" -->
+<!-- print( -->
+<!--     PNT %>% -->
+<!--       filter(!(Timepoint == "PI" | Timepoint == "VC")) %>%  -->
+<!--       filter(exclude_B.1.617.2 == 0) %>%  -->
+<!--       ggplot(aes(x = factor(Timepoint,  -->
+<!--                             levels = c('W2', 'M1', 'M3',  -->
+<!--                                           'M6+')),  -->
+<!--                  y = !!sym(i),  -->
+<!--                  colour = Dexa, -->
+<!--                  group = factor(PatID_Studie1))) + -->
+<!--         labs(col = "Dexa") + -->
+<!--         theme(axis.text.x = element_text(angle = 90)) + -->
+<!--         #geom_jitter(width = 0.1, alpha = 0.2) + -->
+<!--         geom_point(position = position_dodge(0.4), alpha = 0.5) + -->
+<!--       #scale_y_log10() + -->
+<!--         coord_trans(y = "log10") + -->
+<!--       scale_y_continuous(breaks = c(10, 100, 1000,10000, 20000, 30000, 40000))+ -->
+
+<!--         #geom_boxplot(aes(fill = factor(Dexa)), width = 0.5,  -->
+<!--         #             colour = "gray47", alpha = 0.5, outlier.shape = NA) + -->
+<!--         scale_color_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--         scale_fill_manual(breaks = c("D+", "D-", "mild"), -->
+<!--                           values = c("orangered", "blue", "green3")) + -->
+<!--         # facet_wrap(~factor(Marker2, levels = c("CD40L+ CD137+","CD40L+ GrzB+", -->
+<!--         #                                        "CD40L+ IFN-g+","CD40L+ IL-21+", -->
+<!--         #                                        "CD40L+ TNF-a+","CD137+ GrzB+", -->
+<!--         #                                        "CD137+ IFN-g+","CD137+ IL-21+", -->
+<!--         #                                        "CD137+ TNF-a+","CD137+ GrzB-")), -->
+<!--         #            scales = "free") + -->
+<!--         facet_wrap(. ~ factor(Dexa, levels = c('D+', 'D-', 'mild')), -->
+<!--                  ncol = 3, -->
+<!--                  scales = "free")+#, -->
+<!--                  #labeller = labeller(Dexa = as_labeller(dexa.labels))) + -->
+<!--         geom_smooth(method = "rlm", aes(group = Dexa, fill = Dexa), alpha = 0.1,  -->
+<!--                   se = T, size = 0.7) + -->
+<!--         geom_line(position = position_dodge(0.4),  -->
+<!--                   aes(group = factor(PatID_Studie1)), alpha = 0.8,  -->
+<!--                   size = 0.2) + -->
+<!--         xlab("Time point") + -->
+<!--         ggtitle(paste0(i, " neutralisation progression")) + -->
+<!--         theme_bw() + -->
+<!--         #theme(legend.position = "none") + -->
+<!--         theme(strip.background =element_rect(fill="aliceblue"))) -->
+<!-- ggsave(paste0("MSimages/", i, " neutralisation progression DaysPSO byPatients.png"), width = 20, height = 10, units = "cm", dpi = 300) -->
+
+
+<!-- ``` -->
